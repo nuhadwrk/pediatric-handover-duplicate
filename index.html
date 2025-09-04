@@ -130,15 +130,6 @@
       vertical-align: top;
     }
     #handoverHeader th { background: var(--bg); }
-    #handoverHeader input {
-      width: 60px;
-      padding: 4px;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      text-align: center;
-      background: var(--card-bg);
-      color: var(--text);
-    }
     #notesCard strong { display: block; margin-bottom: 8px; }
     #notesText {
       width: 100%;
@@ -255,7 +246,7 @@
       z-index: 10;
     }
     .discharge-badge.discharge-active {
-      display: block !important;
+      display: block;
     }
     .new-checkbox { margin-top: 8px; }
     .editable {
@@ -267,6 +258,23 @@
       white-space: pre-wrap;
     }
     .editable:focus {
+      outline: none;
+      border-bottom: 1px solid var(--editable-focus);
+    }
+    .shift-select {
+      border: none;
+      background: transparent;
+      border-bottom: 1px dashed var(--editable-border);
+      padding: 0 4px;
+      font-size: 16px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      cursor: pointer;
+    }
+    .shift-select:focus {
       outline: none;
       border-bottom: 1px solid var(--editable-focus);
     }
@@ -328,6 +336,63 @@
       min-height: 20px;
     }
     .plan-history.expanded + p { display: none; }
+    #loading {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--card-bg);
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      z-index: 1000;
+      font-weight: 600;
+    }
+    #dischargeModal {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--card-bg);
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      z-index: 1000;
+      text-align: center;
+    }
+    #dischargeModal select {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+    }
+    #dischargeModal button {
+      padding: 10px 20px;
+      margin: 5px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    #dischargeModal .confirm-btn {
+      background: var(--primary);
+      color: #fff;
+    }
+    #dischargeModal .confirm-btn:hover {
+      background: var(--primary-dark);
+    }
+    #dischargeModal .cancel-btn {
+      background: #6b7280;
+      color: #fff;
+    }
+    #dischargeModal .cancel-btn:hover {
+      background: #4b5563;
+    }
   </style>
 </head>
 <body>
@@ -342,21 +407,21 @@
   </div>
   <div class="top-panel">
     <div id="handoverHeader" class="panel-card">
-      <strong>Date:</strong> <span id="handoverDate">2025-09-01</span>
+      <strong>Date:</strong> <span id="handoverDate">2025-09-04</span>
       <table>
         <tbody>
           <tr><th></th><th>Morning</th><th>Evening</th><th>Night</th></tr>
           <tr>
             <td>Admissions</td>
-            <td><input type="number" id="adM" value="0" min="0" oninput="recalcSummary()"></td>
-            <td><input type="number" id="adE" value="0" min="0" oninput="recalcSummary()"></td>
-            <td><input type="number" id="adN" value="0" min="0" oninput="recalcSummary()"></td>
+            <td><span id="adM">0</span></td>
+            <td><span id="adE">0</span></td>
+            <td><span id="adN">0</span></td>
           </tr>
           <tr>
             <td>Discharges</td>
-            <td><input type="number" id="disM" value="0" min="0" oninput="recalcSummary()"></td>
-            <td><input type="number" id="disE" value="0" min="0" oninput="recalcSummary()"></td>
-            <td><input type="number" id="disN" value="0" min="0" oninput="recalcSummary()"></td>
+            <td><span id="disM">0</span></td>
+            <td><span id="disE">0</span></td>
+            <td><span id="disN">0</span></td>
           </tr>
           <tr><td>Total Admissions</td><td colspan="3" id="totalAd">0</td></tr>
           <tr><td>Total Discharges</td><td colspan="3" id="totalDis">0</td></tr>
@@ -371,6 +436,19 @@
     <div id="notesCard" class="panel-card">
       <strong>Notes/Pending work</strong>
       <textarea id="notesText" placeholder="Type pending tasks, callbacks, follow-ups..."></textarea>
+    </div>
+  </div>
+  <div id="loading">Loading...</div>
+  <div id="dischargeModal">
+    <h3>Select Discharge Shift</h3>
+    <select id="dischargeShiftSelect">
+      <option value="Morning">Morning</option>
+      <option value="Evening">Evening</option>
+      <option value="Night">Night</option>
+    </select>
+    <div>
+      <button class="confirm-btn" onclick="confirmDischarge()">Confirm</button>
+      <button class="cancel-btn" onclick="cancelDischarge()">Cancel</button>
     </div>
   </div>
   <div class="form-section" id="formSection">
@@ -409,14 +487,14 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script>
-  const firebaseConfig = {
-  apiKey: "AIzaSyAC_qTA3N7NLTzLgPQwHh2HN7Z8YH89kp0",
-  authDomain: "pediatric-handover-test.firebaseapp.com",
-  projectId: "pediatric-handover-test",
-  storageBucket: "pediatric-handover-test.firebasestorage.app",
-  messagingSenderId: "103926797632",
-  appId: "1:103926797632:web:7ad1a8a224541d540956a5"
-};
+    const firebaseConfig = {
+      apiKey: "AIzaSyAC_qTA3N7NLTzLgPQwHh2HN7Z8YH89kp0",
+      authDomain: "pediatric-handover-test.firebaseapp.com",
+      projectId: "pediatric-handover-test",
+      storageBucket: "pediatric-handover-test.firebasestorage.app",
+      messagingSenderId: "103926797632",
+      appId: "1:103926797632:web:7ad1a8a224541d540956a5"
+    };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     document.getElementById("handoverDate").innerText = new Date().toISOString().split("T")[0];
@@ -460,7 +538,73 @@
       const savedTheme = localStorage.getItem('theme') || 'light';
       document.documentElement.setAttribute('data-theme', savedTheme);
     }
+    function showLoading() {
+      document.getElementById('loading').style.display = 'block';
+    }
+    function hideLoading() {
+      document.getElementById('loading').style.display = 'none';
+    }
+    function formatDateForBadge(timestamp) {
+      if (!timestamp) return '';
+      const date = new Date(timestamp);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
+    }
+    function migrateDischargeData() {
+      showLoading();
+      db.collection('patients').where('ward', '==', 'Discharge').get().then(snap => {
+        const batch = db.batch();
+        snap.forEach(doc => {
+          const data = doc.data();
+          if (!data.dischargeTimestamp || !data.dischargeShift) {
+            const updates = {};
+            if (!data.dischargeTimestamp) {
+              updates.dischargeTimestamp = data.timestamp || Date.now();
+            }
+            if (!data.dischargeShift) {
+              updates.dischargeShift = 'Unknown';
+            }
+            batch.update(db.collection('patients').doc(doc.id), updates);
+          }
+        });
+        return batch.commit();
+      }).then(() => {
+        console.log('Discharge data migration completed');
+        calculateAdmissionsAndDischarges();
+      }).catch(error => {
+        console.error('Error migrating discharge data:', error);
+        alert('Failed to migrate discharge data: ' + error.message);
+      }).finally(() => {
+        hideLoading();
+      });
+    }
+    function migrateShiftData() {
+      showLoading();
+      const validShifts = ['Morning', 'Evening', 'Night'];
+      db.collection('patients').get().then(snap => {
+        const batch = db.batch();
+        snap.forEach(doc => {
+          const data = doc.data();
+          if (data.shift && !validShifts.includes(data.shift)) {
+            const normalizedShift = validShifts.find(shift => shift.toLowerCase().startsWith(data.shift.toLowerCase().slice(0, 3))) || 'Unknown';
+            batch.update(db.collection('patients').doc(doc.id), { shift: normalizedShift });
+          }
+        });
+        return batch.commit();
+      }).then(() => {
+        console.log('Shift data migration completed');
+        calculateAdmissionsAndDischarges();
+      }).catch(error => {
+        console.error('Error migrating shift data:', error);
+        alert('Failed to migrate shift data: ' + error.message);
+      }).finally(() => {
+        hideLoading();
+      });
+    }
     function addPatient() {
+      showLoading();
       const patient = {
         name: document.getElementById('name').value,
         id: document.getElementById('id').value,
@@ -481,30 +625,65 @@
         lastLoggedPlan: ''
       };
       db.collection('patients').add(patient).then(() => {
-        console.log('Patient added successfully:', patient);
         document.getElementById('formSection').style.display = 'none';
-        loadPatients();
+        document.getElementById('formSection').reset();
+        document.getElementById('doa').value = new Date().toISOString().split("T")[0];
+        document.getElementById('isNew').checked = true;
       }).catch(error => {
         console.error("Error adding patient:", error);
+        alert('Failed to add patient: ' + error.message);
+      }).finally(() => {
+        hideLoading();
       });
     }
+    let currentDischargeId = null;
+    function showDischargeModal(id) {
+      showLoading();
+      currentDischargeId = id;
+      const modal = document.getElementById('dischargeModal');
+      modal.style.display = 'block';
+    }
+    function confirmDischarge() {
+      const shift = document.getElementById('dischargeShiftSelect').value;
+      if (currentDischargeId && ['Morning', 'Evening', 'Night'].includes(shift)) {
+        changeWard(currentDischargeId, 'Discharge', shift);
+        document.getElementById('dischargeModal').style.display = 'none';
+        currentDischargeId = null;
+      } else {
+        alert('Please select a valid shift.');
+        hideLoading();
+      }
+    }
+    function cancelDischarge() {
+      document.getElementById('dischargeModal').style.display = 'none';
+      const select = document.querySelector(`.patient-card[data-id="${currentDischargeId}"] select`);
+      if (select) {
+        select.value = document.querySelector(`.patient-card[data-id="${currentDischargeId}"] select option[selected]`).value;
+      }
+      currentDischargeId = null;
+      hideLoading();
+    }
     function deletePatient(id) {
+      showLoading();
       const discharge = confirm("Discharge patient? Click 'OK' to move to Discharges");
       if (discharge) {
-        changeWard(id, 'Discharge');
+        showDischargeModal(id);
       } else {
-        if (confirm("Are you sure you want to delete this patient? This action cannot be undone.")) {
+        if (confirm("Are you sure you want to delete this patient?")) {
           db.collection('patients').doc(id).delete().then(() => {
             console.log('Patient deleted:', id);
-            loadPatients();
           }).catch(error => {
             console.error("Error deleting patient:", error);
+            alert('Failed to delete patient: ' + error.message);
+          }).finally(() => {
+            hideLoading();
           });
+        } else {
+          hideLoading();
         }
       }
     }
     function updateField(id, field, value) {
-      console.log(`Updating field ${field} for patient ${id} with value:`, value);
       db.collection('patients').doc(id).update({ [field]: value }).then(() => {
         console.log(`Field ${field} updated successfully for patient ${id}`);
         if (field === 'plan') {
@@ -512,31 +691,37 @@
         }
       }).catch(error => {
         console.error(`Error updating ${field}:`, error);
+        alert('Failed to update field: ' + error.message);
         refreshButtonState(id);
       });
     }
     function updateLog(id, newText) {
-      console.log(`Updating logs for patient ${id} with newText:`, newText);
       db.collection('patients').doc(id).update({ logs: newText }).then(() => {
         console.log(`Logs updated successfully for patient ${id}`);
-        loadPatients();
       }).catch(error => {
         console.error('Error updating logs:', error);
+        alert('Failed to update logs: ' + error.message);
       });
     }
-    function changeWard(id, newWard) {
-      console.log(`Changing ward for patient ${id} to ${newWard}`);
+    function changeWard(id, newWard, dischargeShift = null) {
+      showLoading();
       db.collection('patients').doc(id).get().then(doc => {
         if (doc.exists) {
           const updates = { ward: newWard };
-          if (newWard === 'Discharge' && !doc.data().dischargeTimestamp) {
-            updates.dischargeTimestamp = Date.now();
+          if (newWard === 'Discharge') {
+            updates.dischargeTimestamp = doc.data().dischargeTimestamp || Date.now();
+            updates.dischargeShift = dischargeShift || doc.data().dischargeShift || 'Unknown';
           }
           db.collection('patients').doc(id).update(updates).then(() => {
             console.log(`Ward changed to ${newWard} for patient ${id}`);
-            loadPatients();
+            if (newWard === 'Discharge') {
+              calculateAdmissionsAndDischarges();
+            }
           }).catch(error => {
             console.error("Error changing ward:", error);
+            alert('Failed to change ward: ' + error.message);
+          }).finally(() => {
+            hideLoading();
           });
         }
       });
@@ -545,15 +730,14 @@
       db.collection('patients').doc(id).get().then(doc => {
         if (doc.exists) {
           const isNew = !doc.data().isNew;
-          console.log(`Toggling new tag for patient ${id} to ${isNew}`);
           db.collection('patients').doc(id).update({ isNew: isNew }).then(() => {
             const badge = document.querySelector(`.new-badge[data-id="${id}"]`);
             if (badge) {
               badge.classList.toggle('new-active', isNew);
             }
-            loadPatients();
           }).catch(error => {
             console.error("Error toggling new tag:", error);
+            alert('Failed to toggle new tag: ' + error.message);
           });
         }
       });
@@ -575,11 +759,12 @@
       toggle.innerText = newExpanded ? 'Plan: ▼' : 'Plan: ►';
     }
     function logPlan(id) {
-      console.log(`Attempting to log plan for patient ${id}`);
+      showLoading();
       const planEl = document.querySelector(`#plan-content-${id}`);
       const text = planEl ? planEl.innerText.trim() : '';
       if (text === '') {
         console.log('Plan is empty, not logging');
+        hideLoading();
         return;
       }
       const timestamp = Date.now();
@@ -595,10 +780,12 @@
           }).then(() => {
             console.log('Plan logged successfully for patient', id);
             refreshButtonState(id);
-            loadPatients();
           }).catch(error => {
             console.error('Error logging plan:', error);
+            alert('Failed to log plan: ' + error.message);
             refreshButtonState(id);
+          }).finally(() => {
+            hideLoading();
           });
         }
       });
@@ -620,7 +807,7 @@
           console.log(`Patient ${id}: needsLog=${needsLog}, currentPlan="${currentPlan}", lastLoggedPlan="${lastLoggedPlan}"`);
         }
       }).catch(error => {
-        console.error(`Error refreshing button state for patient ${id}:`, error);
+        console.error(` planer-button-state for patient ${id}:`, error);
       });
     }
     function formatTimestamp(timestamp) {
@@ -702,25 +889,25 @@
       return text;
     }
     function printReport(type, wardsToInclude, totalPatients) {
+      showLoading();
       const date = document.getElementById('handoverDate').innerText;
-      const adM = +document.getElementById('adM').value || 0;
-      const adE = +document.getElementById('adE').value || 0;
-      const adN = +document.getElementById('adN').value || 0;
-      const disM = +document.getElementById('disM').value || 0;
-      const disE = +document.getElementById('disE').value || 0;
-      const disN = +document.getElementById('disN').value || 0;
+      const adM = +document.getElementById('adM').innerText || 0;
+      const adE = +document.getElementById('adE').innerText || 0;
+      const adN = +document.getElementById('adN').innerText || 0;
+      const disM = +document.getElementById('disM').innerText || 0;
+      const disE = +document.getElementById('disE').innerText || 0;
+      const disN = +document.getElementById('disN').innerText || 0;
       const totalAd = document.getElementById('totalAd').innerText;
       const totalDis = document.getElementById('totalDis').innerText;
       const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-      db.collection('patients').get().then(snap => {
+      db.collection('patients').where('ward', 'in', wardsToInclude).get().then(snap => {
         const wards = ["PW", "GW", "SW", "PVT", "ICU", "NICU", "ER"];
         const patientsByWard = {};
         wards.forEach(ward => patientsByWard[ward] = []);
         snap.forEach(doc => {
           const patient = doc.data();
-          const ward = patient.ward;
-          if (wards.includes(ward) && wardsToInclude.includes(ward)) {
-            patientsByWard[ward].push({
+          if (patient.ward !== 'Discharge') {
+            patientsByWard[patient.ward].push({
               id: doc.id,
               ...patient
             });
@@ -743,6 +930,7 @@
                 --bg: ${currentTheme === 'dark' ? '#1a202c' : '#f4f7fb'};
                 --text: ${currentTheme === 'dark' ? '#e2e8f0' : '#1d3557'};
                 --card-bg: ${currentTheme === 'dark' ? '#2d3748' : '#ffffff'};
+                --shadow: ${currentTheme === 'dark' ? '0 4px 12px rgba(0,0,0,0.3)' : '0 4px 12px rgba(0,0,0,0.08)'};
               }
               body { font-family: 'Inter', sans-serif; padding: 20px; background: var(--bg); color: var(--text); }
               .copy-btn {
@@ -768,6 +956,9 @@
         textWindow.document.close();
       }).catch(error => {
         console.error(`Error generating ${type} report:`, error);
+        alert('Failed to generate report: ' + error.message);
+      }).finally(() => {
+        hideLoading();
       });
     }
     function printAll() {
@@ -785,13 +976,14 @@
       });
     }
     function printNew() {
+      showLoading();
       const date = document.getElementById('handoverDate').innerText;
-      const adM = +document.getElementById('adM').value || 0;
-      const adE = +document.getElementById('adE').value || 0;
-      const adN = +document.getElementById('adN').value || 0;
-      const disM = +document.getElementById('disM').value || 0;
-      const disE = +document.getElementById('disE').value || 0;
-      const disN = +document.getElementById('disN').value || 0;
+      const adM = +document.getElementById('adM').innerText || 0;
+      const adE = +document.getElementById('adE').innerText || 0;
+      const adN = +document.getElementById('adN').innerText || 0;
+      const disM = +document.getElementById('disM').innerText || 0;
+      const disE = +document.getElementById('disE').innerText || 0;
+      const disN = +document.getElementById('disN').innerText || 0;
       const totalAd = document.getElementById('totalAd').innerText;
       const totalDis = document.getElementById('totalDis').innerText;
       const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
@@ -823,6 +1015,7 @@
                 --bg: ${currentTheme === 'dark' ? '#1a202c' : '#f4f7fb'};
                 --text: ${currentTheme === 'dark' ? '#e2e8f0' : '#1d3557'};
                 --card-bg: ${currentTheme === 'dark' ? '#2d3748' : '#ffffff'};
+                --shadow: ${currentTheme === 'dark' ? '0 4px 12px rgba(0,0,0,0.3)' : '0 4px 12px rgba(0,0,0,0.08)'};
               }
               body { font-family: 'Inter', sans-serif; padding: 20px; background: var(--bg); color: var(--text); }
               .copy-btn {
@@ -848,52 +1041,171 @@
         textWindow.document.close();
       }).catch(err => {
         console.error('Error generating NEW cases report:', err);
+        alert('Failed to generate NEW cases report: ' + err.message);
+      }).finally(() => {
+        hideLoading();
       });
     }
-    function recalcSummary() {
-      const adM = +document.getElementById('adM').value || 0;
-      const adE = +document.getElementById('adE').value || 0;
-      const adN = +document.getElementById('adN').value || 0;
-      const disM = +document.getElementById('disM').value || 0;
-      const disE = +document.getElementById('disE').value || 0;
-      const disN = +document.getElementById('disN').value || 0;
-      document.getElementById('totalAd').innerText = adM + adE + adN;
-      document.getElementById('totalDis').innerText = disM + disE + disN;
-      const data = { adM, adE, adN, disM, disE, disN, date: new Date().toISOString().split("T")[0] };
-      localStorage.setItem('summary', JSON.stringify(data));
-      db.collection('summaries').doc('current').set(data);
-    }
-    function restoreSummary() {
-      const saved = localStorage.getItem('summary');
-      if (saved) {
-        const { adM, adE, adN, disM, disE, disN } = JSON.parse(saved);
-        document.getElementById('adM').value = adM;
-        document.getElementById('adE').value = adE;
-        document.getElementById('adN').value = adN;
-        document.getElementById('disM').value = disM;
-        document.getElementById('disE').value = disE;
-        document.getElementById('disN').value = disN;
+    function resetSummaryIfNeeded() {
+      const now = new Date();
+      const hours = now.getHours();
+      const currentDate = now.toISOString().split('T')[0];
+      const lastReset = localStorage.getItem('lastSummaryReset') || currentDate;
+      if (currentDate !== lastReset && hours >= 10) {
+        db.collection('summaries').doc('current').set({
+          adM: 0, adE: 0, adN: 0,
+          disM: 0, disE: 0, disN: 0,
+          date: currentDate
+        }).then(() => {
+          localStorage.setItem('lastSummaryReset', currentDate);
+          updateSummaryDisplay();
+        }).catch(error => {
+          console.error('Error resetting summary:', error);
+          alert('Failed to reset summary: ' + error.message);
+        });
+      } else {
+        updateSummaryDisplay();
       }
-      db.collection('summaries').doc('current').get().then(doc => {
+    }
+    function updateSummaryDisplay() {
+      db.collection('summaries').doc('current').onSnapshot(doc => {
         if (doc.exists) {
           const data = doc.data();
-          document.getElementById('adM').value = data.adM;
-          document.getElementById('adE').value = data.adE;
-          document.getElementById('adN').value = data.adN;
-          document.getElementById('disM').value = data.disM;
-          document.getElementById('disE').value = data.disE;
-          document.getElementById('disN').value = data.disN;
-          recalcSummary();
+          document.getElementById('adM').innerText = data.adM || 0;
+          document.getElementById('adE').innerText = data.adE || 0;
+          document.getElementById('adN').innerText = data.adN || 0;
+          document.getElementById('disM').innerText = data.disM || 0;
+          document.getElementById('disE').innerText = data.disE || 0;
+          document.getElementById('disN').innerText = data.disN || 0;
+          document.getElementById('totalAd').innerText = (data.adM || 0) + (data.adE || 0) + (data.adN || 0);
+          document.getElementById('totalDis').innerText = (data.disM || 0) + (data.disE || 0) + (data.disN || 0);
         }
+      }, error => {
+        console.error('Error listening to summary updates:', error);
+        alert('Failed to update summary display: ' + error.message);
       });
     }
+    function calculateAdmissionsAndDischarges() {
+      const currentDate = document.getElementById('handoverDate').innerText;
+      db.collection('patients').get().then(snap => {
+        let adM = 0, adE = 0, adN = 0, disM = 0, disE = 0, disN = 0;
+        snap.forEach(doc => {
+          const patient = doc.data();
+          if (patient.doa === currentDate) {
+            if (patient.shift === 'Morning') adM++;
+            else if (patient.shift === 'Evening') adE++;
+            else if (patient.shift === 'Night') adN++;
+          }
+          if (patient.ward === 'Discharge' && patient.dischargeTimestamp) {
+            const dischargeDate = new Date(patient.dischargeTimestamp).toISOString().split('T')[0];
+            if (dischargeDate === currentDate && patient.dischargeShift) {
+              if (patient.dischargeShift === 'Morning') disM++;
+              else if (patient.dischargeShift === 'Evening') disE++;
+              else if (patient.dischargeShift === 'Night') disN++;
+            }
+          }
+        });
+        db.collection('summaries').doc('current').set({
+          adM, adE, adN,
+          disM, disE, disN,
+          date: currentDate
+        }, { merge: true }).then(() => {
+          console.log('Summary updated:', { adM, adE, adN, disM, disE, disN });
+        }).catch(error => {
+          console.error('Error updating summary:', error);
+          alert('Failed to update summary: ' + error.message);
+        });
+      }).catch(error => {
+        console.error('Error calculating admissions and discharges:', error);
+        alert('Failed to calculate admissions and discharges: ' + error.message);
+      });
+    }
+    function updatePatientCard(id, data, grid) {
+      const existingCard = document.querySelector(`.patient-card[data-id="${id}"]`);
+      if (!data) {
+        if (existingCard) existingCard.remove();
+        return;
+      }
+      const wards = ["PW", "GW", "SW", "PVT", "ICU", "NICU", "ER", "Discharge"];
+      if (!wards.includes(data.ward)) return;
+      const makeEditable = (field, label = '') =>
+        `<p><strong>${label}</strong><span contenteditable class="editable" onblur="updateField('${id}', '${field}', this.innerText)">${data[field] || ''}</span></p>`;
+      const logs = data.logs || 'No logs yet';
+      let dischargeTag = '';
+      if (data.ward === 'Discharge') {
+        const dischargeDate = formatDateForBadge(data.dischargeTimestamp);
+        const shiftText = data.dischargeShift || 'Unknown';
+        dischargeTag = `<span class="discharge-badge discharge-active" data-id="${id}">Discharged${dischargeDate ? ` on ${dischargeDate}, ${shiftText} shift` : ''}</span>`;
+      }
+      const validShifts = ['Morning', 'Evening', 'Night'];
+      const currentShift = validShifts.includes(data.shift) ? data.shift : 'Unknown';
+      const card = existingCard || document.createElement('div');
+      card.className = 'patient-card';
+      card.setAttribute('data-id', id);
+      card.innerHTML = `
+        <button class="delete-btn" onclick="deletePatient('${id}')">×</button>
+        <span class="new-badge${data.isNew ? ' new-active' : ''}" data-id="${id}">NEW</span>
+        ${dischargeTag}
+        <p><strong>Name:</strong> <span contenteditable class="editable" onblur="updateField('${id}', 'name', this.innerText)">${data.name}</span>
+           (ID: <span contenteditable class="editable" onblur="updateField('${id}', 'id', this.innerText)">${data.id || ''}</span>)</p>
+        <p><strong>DOA:</strong> <span contenteditable class="editable" onblur="updateField('${id}', 'doa', this.innerText)">${data.doa || ''}</span>, 
+           <strong>Shift:</strong> 
+           <select class="shift-select" onchange="updateField('${id}', 'shift', this.value)">
+             ${validShifts.map(sh => `<option value="${sh}" ${sh === currentShift ? 'selected' : ''}>${sh}</option>`).join('')}
+             <option value="Unknown" ${currentShift === 'Unknown' ? 'selected' : ''}>Unknown</option>
+           </select>
+        </p>
+        ${makeEditable('bed', data.ward === 'NICU' ? `Bed: ${data.name ? data.name : ''}` : 'Bed: ')}
+        ${makeEditable('age', 'Age: ')}
+        ${makeEditable('sex', 'Sex: ')}
+        ${makeEditable('diagnosis', 'Diagnosis: ')}
+        ${makeEditable('medications', 'Medications: ')}
+        ${makeEditable('issues', 'Issues: ')}
+        <p><strong class="hopi-toggle" id="hopi-toggle-${id}" onclick="toggleHopi('${id}')" aria-expanded="false">HOPI: ►</strong></p>
+        <div class="hopi-content" id="hopi-content-${id}">
+          <span contenteditable class="editable" onblur="updateField('${id}', 'hopi', this.innerText)">${data.hopi || ''}</span>
+        </div>
+        <p><strong class="hopi-toggle" id="plan-toggle-${id}" onclick="togglePlan('${id}')" aria-expanded="false">Plan: ►</strong></p>
+        <div class="hopi-content plan-history" id="plan-history-${id}">
+          <div contenteditable class="editable" onblur="updateLog('${id}', this.innerText)">${logs}</div>
+        </div>
+        <p><span contenteditable class="editable" id="plan-content-${id}" onblur="updateField('${id}', 'plan', this.innerText)">${data.plan || ''}</span></p>
+        <button class="log-btn" onclick="logPlan('${id}')">Log</button>
+        <p><strong>Ward:</strong>
+          <select onchange="handleWardChange('${id}', this)">
+            ${wards.map(wr => `<option value="${wr}" ${wr === data.ward ? 'selected' : ''}>${wr}</option>`).join('')}
+          </select>
+        </p>
+        <p class="new-checkbox">
+          <label><input type="checkbox" ${data.isNew ? 'checked' : ''} onchange="toggleNewTag('${id}')"> New</label>
+        </p>
+      `;
+      const logBtn = card.querySelector('.log-btn');
+      const currentPlan = data.plan || '';
+      const lastLoggedPlan = data.lastLoggedPlan || '';
+      const needsLog = currentPlan === '' || currentPlan !== lastLoggedPlan;
+      logBtn.disabled = !needsLog;
+      logBtn.innerText = needsLog ? 'Log' : 'Logged';
+      if (!existingCard) {
+        grid.appendChild(card);
+      }
+      refreshButtonState(id);
+    }
+    function handleWardChange(id, select) {
+      const newWard = select.value;
+      if (newWard === 'Discharge') {
+        showDischargeModal(id);
+      } else {
+        changeWard(id, newWard);
+      }
+    }
     function loadPatients() {
+      showLoading();
       const container = document.getElementById('wardsContainer');
       container.innerHTML = '';
       const wards = ["PW", "GW", "SW", "PVT", "ICU", "NICU", "ER", "Discharge"];
       const wardGrids = {};
       const wardCounts = {};
-      const patientsByWard = {};
       wards.forEach(w => {
         const sec = document.createElement('div');
         const header = document.createElement('h2');
@@ -916,112 +1228,39 @@
         container.appendChild(sec);
         wardGrids[w] = grid;
         wardCounts[w] = 0;
-        patientsByWard[w] = [];
       });
-      db.collection('patients').get().then(snap => {
+      const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      db.collection('patients').onSnapshot(snap => {
         let totalActive = 0;
-        const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
-        const now = Date.now();
+        const currentDate = document.getElementById('handoverDate').innerText;
+        wards.forEach(w => {
+          wardGrids[w].innerHTML = '';
+          wardCounts[w] = 0;
+        });
         snap.forEach(doc => {
           const d = doc.data();
-          let ward = d.ward;
-          if (ward === 'Discharge') {
+          const id = doc.id;
+          if (d.ward === 'Discharge') {
             const dischargeTime = d.dischargeTimestamp || d.timestamp || now;
             if (dischargeTime < now - oneWeekMs) {
-              console.log(`Deleting patient ${doc.id} from Discharges: dischargeTimestamp=${dischargeTime} is over a week old`);
-              db.collection('patients').doc(doc.id).delete().catch(error => {
-                console.error(`Error deleting patient ${doc.id}:`, error);
+              console.log(`Deleting patient ${id} from Discharges: dischargeTimestamp=${dischargeTime} is over a week old`);
+              db.collection('patients').doc(id).delete().catch(error => {
+                console.error(`Error deleting patient ${id}:`, error);
               });
               return;
             }
           }
-          if (wards.includes(ward)) {
-            patientsByWard[ward].push({ id: doc.id, data: d });
-            wardCounts[ward]++;
-            if (ward !== 'Discharge') {
+          if (wards.includes(d.ward)) {
+            wardCounts[d.ward]++;
+            if (d.ward !== 'Discharge') {
               totalActive++;
             }
+            updatePatientCard(id, d, wardGrids[d.ward]);
           }
         });
         document.getElementById('totalCount').innerText = totalActive;
         wards.forEach(w => {
-          if (w === 'Discharge') {
-            patientsByWard[w].sort((a, b) => {
-              const timeA = a.data.dischargeTimestamp || a.data.timestamp || 0;
-              const timeB = b.data.dischargeTimestamp || b.data.timestamp || 0;
-              return timeB - timeA;
-            });
-          } else {
-            patientsByWard[w].sort((a, b) => {
-              const bedA = parseInt(a.data.bed) || 0;
-              const bedB = parseInt(b.data.bed) || 0;
-              return bedA - bedB;
-            });
-          }
-          patientsByWard[w].forEach(({ id, data: d }) => {
-            console.log(`Rendering patient ${id}: ward=${d.ward}, dischargeTimestamp=${d.dischargeTimestamp}`);
-            const makeEditable = (field, label = '') =>
-              `<p><strong>${label}</strong><span contenteditable class="editable" onblur="updateField('${id}', '${field}', this.innerText)">${d[field] || ''}</span></p>`;
-            const logs = d.logs || 'No logs yet';
-            let dischargeTag = '';
-            if (d.ward === 'Discharge') {
-              const timestamp = d.dischargeTimestamp || d.timestamp || Date.now();
-              const formatted = formatTimestamp(timestamp);
-              dischargeTag = `<span class="discharge-badge discharge-active" data-id="${id}">Discharged on ${formatted}</span>`;
-              console.log(`Adding discharge badge for patient ${id}: Discharged on ${formatted}`);
-            }
-            const card = document.createElement('div');
-            card.className = 'patient-card';
-            card.innerHTML = `
-              <button class="delete-btn" onclick="deletePatient('${id}')">×</button>
-              <span class="new-badge${d.isNew ? ' new-active' : ''}" data-id="${id}">NEW</span>
-              ${dischargeTag}
-              <p><strong>Name:</strong> <span contenteditable class="editable" onblur="updateField('${id}', 'name', this.innerText)">${d.name}</span>
-                 (ID: <span contenteditable class="editable" onblur="updateField('${id}', 'id', this.innerText)">${d.id || ''}</span>)</p>
-              <p><strong>DOA:</strong> <span contenteditable class="editable" onblur="updateField('${id}', 'doa', this.innerText)">${d.doa || ''}</span>, <strong>Shift:</strong> <span contenteditable class="editable" onblur="updateField('${id}', 'shift', this.innerText)">${d.shift || ''}</span></p>
-              ${makeEditable('bed', d.ward === 'NICU' ? `Bed: ${d.name ? d.name : ''}` : 'Bed: ')}
-              ${makeEditable('age', 'Age: ')}
-              ${makeEditable('sex', 'Sex: ')}
-              ${makeEditable('diagnosis', 'Diagnosis: ')}
-              ${makeEditable('medications', 'Medications: ')}
-              ${makeEditable('issues', 'Issues: ')}
-              <p><strong class="hopi-toggle" id="hopi-toggle-${id}" onclick="toggleHopi('${id}')" aria-expanded="false">HOPI: ►</strong></p>
-              <div class="hopi-content" id="hopi-content-${id}">
-                <span contenteditable class="editable" onblur="updateField('${id}', 'hopi', this.innerText)">${d.hopi || ''}</span>
-              </div>
-              <p><strong class="hopi-toggle" id="plan-toggle-${id}" onclick="togglePlan('${id}')" aria-expanded="false">Plan: ►</strong></p>
-              <div class="hopi-content plan-history" id="plan-history-${id}">
-                <div contenteditable class="editable" onblur="updateLog('${id}', this.innerText)">${logs}</div>
-              </div>
-              <p><span contenteditable class="editable" id="plan-content-${id}" onblur="updateField('${id}', 'plan', this.innerText)">${d.plan || ''}</span></p>
-              <button class="log-btn" onclick="logPlan('${id}')">Log</button>
-              <p><strong>Ward:</strong>
-                <select onchange="changeWard('${id}', this.value)">
-                  ${wards.map(wr => `<option value="${wr}" ${wr === d.ward ? 'selected' : ''}>${wr}</option>`).join('')}
-                </select>
-              </p>
-              <p class="new-checkbox">
-                <label><input type="checkbox" ${d.isNew ? 'checked' : ''} onchange="toggleNewTag('${id}')"> New</label>
-              </p>
-            `;
-            const logBtn = card.querySelector('.log-btn');
-            const currentPlan = d.plan || '';
-            const lastLoggedPlan = d.lastLoggedPlan || '';
-            const needsLog = currentPlan === '' || currentPlan !== lastLoggedPlan;
-            logBtn.disabled = !needsLog;
-            logBtn.innerText = needsLog ? 'Log' : 'Logged';
-            console.log(`Patient ${id}: needsLog=${needsLog}, currentPlan="${currentPlan}", lastLoggedPlan="${lastLoggedPlan}"`);
-            wardGrids[w].appendChild(card);
-            refreshButtonState(id);
-            if (d.ward === 'Discharge') {
-              const badge = card.querySelector('.discharge-badge');
-              if (badge) {
-                console.log(`Discharge badge found for patient ${id}, classes: ${badge.className}`);
-              } else {
-                console.error(`Discharge badge not found for patient ${id}`);
-              }
-            }
-          });
           const header = document.getElementById(`header-${w}`);
           if (header) {
             header.innerText = `${w === 'Discharge' ? 'Discharges' : w} (${wardCounts[w]} patient${wardCounts[w] !== 1 ? 's' : ''})`;
@@ -1031,15 +1270,19 @@
         const breakdownText = breakdownOrder.map(w => `${w} (${wardCounts[w] || 0})`).join(', ');
         const breakdownEl = document.getElementById('wardBreakdown');
         if (breakdownEl) breakdownEl.innerText = breakdownText;
-      }).catch(error => {
+        calculateAdmissionsAndDischarges();
+        hideLoading();
+      }, error => {
         console.error('Error loading patients:', error);
+        alert('Failed to load patients: ' + error.message);
+        hideLoading();
       });
     }
     loadTheme();
-    restoreSummary();
+    resetSummaryIfNeeded();
+    migrateDischargeData();
+    migrateShiftData();
     loadPatients();
   </script>
 </body>
 </html>
-```
-
