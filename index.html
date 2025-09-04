@@ -1,43 +1,36 @@
 <script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
+  var gk_isXlsx = false;
+  var gk_xlsxFileLookup = {};
+  var gk_fileData = {};
+  function filledCell(cell) {
+    return cell !== '' && cell != null;
+  }
+  function loadFileData(filename) {
+    if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+      try {
+        var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+        var firstSheetName = workbook.SheetNames[0];
+        var worksheet = workbook.Sheets[firstSheetName];
+        var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+        var filteredData = jsonData.filter(row => row.some(filledCell));
+        var headerRowIndex = filteredData.findIndex((row, index) =>
+          row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+        );
+        if (headerRowIndex === -1 || headerRowIndex > 25) {
+          headerRowIndex = 0;
         }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><html lang="en" data-theme="dark">
+        var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex));
+        csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+        return csv;
+      } catch (e) {
+        console.error(e);
+        return "";
+      }
+    }
+    return gk_fileData[filename] || "";
+  }
+</script>
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <title>Pediatric Handover System</title>
@@ -516,7 +509,8 @@
         plan: document.getElementById('plan').value,
         isNew: document.getElementById('isNew').checked,
         timestamp: Date.now(),
-        logs: []
+        logs: '',
+        lastLoggedPlan: ''
       };
       db.collection('patients').add(patient).then(() => {
         console.log('Patient added successfully:', patient);
@@ -555,50 +549,11 @@
     }
     function updateLog(id, newText) {
       console.log(`Updating logs for patient ${id} with newText:`, newText);
-      db.collection('patients').doc(id).get().then(doc => {
-        if (doc.exists) {
-          const logs = doc.data().logs || [];
-          // Split the text into log entry blocks (each block is "• timestamp\n  text\n")
-          const logBlocks = newText.split('\n\n').filter(block => block.trim() !== '');
-          const updatedLogs = [];
-          let logIndex = 0;
-          
-          for (const block of logBlocks) {
-            // Match the block to extract timestamp and text
-            const blockLines = block.split('\n').map(line => line.trim());
-            if (blockLines.length >= 1) {
-              // Extract timestamp from the first line (e.g., "• 01/09/25 18:02")
-              const firstLine = blockLines[0].replace(/^•\s*/, '');
-              const timestampMatch = firstLine.match(/^(\d{2}\/\d{2}\/\d{2}\s\d{2}:\d{2})$/);
-              let timestampText = timestampMatch ? timestampMatch[1] : formatTimestamp(Date.now());
-              // Extract text from the second line (if present), removing leading spaces
-              const text = blockLines[1] ? blockLines[1].replace(/^\s+/, '') : '';
-              
-              if (text) { // Only include non-empty text entries
-                if (logIndex < logs.length) {
-                  // Preserve the original timestamp for existing logs
-                  updatedLogs.push({ text: `${timestampText} ${text}`, timestamp: logs[logIndex].timestamp });
-                } else {
-                  // New log entry, use current timestamp or parsed timestamp
-                  updatedLogs.push({ text: `${timestampText} ${text}`, timestamp: Date.now() });
-                }
-                logIndex++;
-              }
-            }
-          }
-          
-          // Update Firebase with the new logs
-          db.collection('patients').doc(id).update({ logs: updatedLogs }).then(() => {
-            console.log(`Logs updated successfully for patient ${id}`);
-            refreshButtonState(id);
-            loadPatients(); // Refresh to ensure consistent display
-          }).catch(error => {
-            console.error('Error updating logs:', error);
-            refreshButtonState(id);
-          });
-        }
+      db.collection('patients').doc(id).update({ logs: newText }).then(() => {
+        console.log(`Logs updated successfully for patient ${id}`);
+        loadPatients();
       }).catch(error => {
-        console.error('Error fetching patient for log update:', error);
+        console.error('Error updating logs:', error);
       });
     }
     function changeWard(id, newWard) {
@@ -661,17 +616,23 @@
       }
       const timestamp = Date.now();
       const formattedTimestamp = formatTimestamp(timestamp);
-      const logEntry = { text: `${formattedTimestamp} ${text}`, timestamp };
-      console.log('Logging plan entry:', logEntry);
-      db.collection('patients').doc(id).update({
-        logs: firebase.firestore.FieldValue.arrayUnion(logEntry)
-      }).then(() => {
-        console.log('Plan logged successfully for patient', id);
-        refreshButtonState(id);
-        loadPatients();
-      }).catch(error => {
-        console.error('Error logging plan:', error);
-        refreshButtonState(id);
+      const newLogEntry = `• ${formattedTimestamp}\n  ${text}\n\n`;
+      db.collection('patients').doc(id).get().then(doc => {
+        if (doc.exists) {
+          const currentLogs = doc.data().logs || '';
+          const updatedLogs = currentLogs + newLogEntry;
+          db.collection('patients').doc(id).update({
+            logs: updatedLogs,
+            lastLoggedPlan: text
+          }).then(() => {
+            console.log('Plan logged successfully for patient', id);
+            refreshButtonState(id);
+            loadPatients();
+          }).catch(error => {
+            console.error('Error logging plan:', error);
+            refreshButtonState(id);
+          });
+        }
       });
     }
     function refreshButtonState(id) {
@@ -684,18 +645,14 @@
       const currentPlan = planEl.innerText.trim();
       db.collection('patients').doc(id).get().then(doc => {
         if (doc.exists) {
-          const logs = doc.data().logs || [];
-          const sortedLogs = logs.slice().sort((a, b) => b.timestamp - a.timestamp);
-          const lastLogText = sortedLogs.length > 0
-            ? sortedLogs[0].text.replace(/^\d{2}\/\d{2}\/\d{2}\s\d{2}:\d{2}\s*/, '').trim()
-            : '';
-          const needsLog = currentPlan !== '' && currentPlan !== lastLogText;
+          const lastLoggedPlan = doc.data().lastLoggedPlan || '';
+          const needsLog = currentPlan === '' || currentPlan !== lastLoggedPlan;
           logBtn.disabled = !needsLog;
           logBtn.innerText = needsLog ? 'Log' : 'Logged';
-          console.log(`Patient ${id}: needsLog=${needsLog}, currentPlan="${currentPlan}", lastLogText="${lastLogText}"`);
+          console.log(`Patient ${id}: needsLog=${needsLog}, currentPlan="${currentPlan}", lastLoggedPlan="${lastLoggedPlan}"`);
         }
       }).catch(error => {
-        console.error(`Error fetching patient ${id} for button state refresh:`, error);
+        console.error(`Error refreshing button state for patient ${id}:`, error);
       });
     }
     function formatTimestamp(timestamp) {
@@ -1037,16 +994,7 @@
             console.log(`Rendering patient ${id}: ward=${d.ward}, dischargeTimestamp=${d.dischargeTimestamp}`);
             const makeEditable = (field, label = '') =>
               `<p><strong>${label}</strong><span contenteditable class="editable" onblur="updateField('${id}', '${field}', this.innerText)">${d[field] || ''}</span></p>`;
-            const logs = d.logs || [];
-            const sortedLogs = logs.slice().sort((a, b) => a.timestamp - b.timestamp);
-            const logHistory = sortedLogs.length > 0
-              ? sortedLogs.map(log => {
-                  const timestampMatch = log.text.match(/^(\d{2}\/\d{2}\/\d{2}\s\d{2}:\d{2})\s*(.*)$/);
-                  const timestamp = timestampMatch ? timestampMatch[1] : formatTimestamp(log.timestamp);
-                  const text = timestampMatch ? timestampMatch[2] : log.text;
-                  return `• ${timestamp}\n  ${text}\n`;
-                }).join('\n')
-              : 'No logs yet';
+            const logs = d.logs || 'No logs yet';
             let dischargeTag = '';
             if (d.ward === 'Discharge') {
               const timestamp = d.dischargeTimestamp || d.timestamp || Date.now();
@@ -1075,7 +1023,7 @@
               </div>
               <p><strong class="hopi-toggle" id="plan-toggle-${id}" onclick="togglePlan('${id}')" aria-expanded="false">Plan: ►</strong></p>
               <div class="hopi-content plan-history" id="plan-history-${id}">
-                <div contenteditable class="editable" onblur="updateLog('${id}', this.innerText)">${logHistory}</div>
+                <div contenteditable class="editable" onblur="updateLog('${id}', this.innerText)">${logs}</div>
               </div>
               <p><span contenteditable class="editable" id="plan-content-${id}" onblur="updateField('${id}', 'plan', this.innerText)">${d.plan || ''}</span></p>
               <button class="log-btn" onclick="logPlan('${id}')">Log</button>
@@ -1089,14 +1037,12 @@
               </p>
             `;
             const logBtn = card.querySelector('.log-btn');
-            const lastLogText = logs.length > 0
-              ? logs.slice().sort((a, b) => b.timestamp - a.timestamp)[0].text.replace(/^\d{2}\/\d{2}\/\d{2}\s\d{2}:\d{2}\s*/, '').trim()
-              : '';
             const currentPlan = d.plan || '';
-            const needsLog = currentPlan !== '' && currentPlan !== lastLogText;
+            const lastLoggedPlan = d.lastLoggedPlan || '';
+            const needsLog = currentPlan === '' || currentPlan !== lastLoggedPlan;
             logBtn.disabled = !needsLog;
             logBtn.innerText = needsLog ? 'Log' : 'Logged';
-            console.log(`Patient ${id}: needsLog=${needsLog}, currentPlan="${currentPlan}", lastLogText="${lastLogText}"`);
+            console.log(`Patient ${id}: needsLog=${needsLog}, currentPlan="${currentPlan}", lastLoggedPlan="${lastLoggedPlan}"`);
             wardGrids[w].appendChild(card);
             refreshButtonState(id);
             if (d.ward === 'Discharge') {
@@ -1126,5 +1072,5 @@
     loadPatients();
   </script>
 </body>
-
 </html>
+```
