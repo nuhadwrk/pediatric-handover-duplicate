@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
@@ -20,7 +19,7 @@
       --accent: #2a9d8f;
       --text: #1d3557;
       --card-bg: #ffffff;
-      --shadow: 0 4px 12px rgba(0,0,0,0.08);
+      --shadow: 0 3.8px 11.4px rgba(0,0,0,0.08);
       --border: #aaa;
       --editable-border: #ccc;
       --editable-focus: #888;
@@ -34,8 +33,8 @@
       --Discharge: #e2e3e5;
       --new-btn: #f6a623;
       --discharge-btn: #28a745;
-      --panel-width: 460px;
-      --panel-height: 360px;
+      --panel-width: 437px;
+      --panel-height: 342px;
     }
     [data-theme="dark"] {
       --bg: #1a202c;
@@ -44,7 +43,7 @@
       --accent: #38b2ac;
       --text: #e2e8f0;
       --card-bg: #2d3748;
-      --shadow: 0 4px 12px rgba(0,0,0,0.3);
+      --shadow: 0 3.8px 11.4px rgba(0,0,0,0.3);
       --border: #4a5568;
       --editable-border: #718096;
       --editable-focus: #a0aec0;
@@ -60,24 +59,74 @@
       --discharge-btn: #28a745;
     }
     * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
-    body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); }
-    h1 { margin: 0 0 24px; text-align: center; font-weight: 700; }
+    body { 
+      margin: 0; 
+      padding: 22.8px; 
+      background: var(--bg); 
+      color: var(--text); 
+    }
+    /* Mobile view adjustments (≤768px) */
+    @media screen and (max-width: 768px) {
+      body {
+        padding: 16px;
+      }
+      .patient-card {
+        width: 100% !important;
+        margin: 0 auto;
+        padding: 20px;
+        transform: none !important;
+      }
+      .panel-card {
+        width: 100%;
+        flex: 0 0 100%;
+        height: auto;
+        min-height: 360px;
+        padding: 20px;
+      }
+      .top-panel {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      #handoverHeader table {
+        font-size: 15px;
+      }
+      .top-buttons button {
+        padding: 10px 20px;
+        font-size: 16px;
+      }
+      .form-section {
+        padding: 20px;
+        max-width: 100%;
+      }
+      .ward-header {
+        font-size: 20px;
+        padding: 10px;
+      }
+    }
+    /* Desktop view adjustments (>768px) */
+    @media screen and (min-width: 769px) {
+      .patient-card {
+        width: 295px;
+      }
+    }
+    h1 { margin: 0 0 22.8px; text-align: center; font-weight: 700; font-size: 28.5px; }
     .top-buttons {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      gap: 8px;
-      margin-bottom: 16px;
+      gap: 7.6px;
+      margin-bottom: 15.2px;
     }
     .top-buttons button {
-      padding: 10px 20px;
+      padding: 9.5px 19px;
       font-weight: 600;
       border: none;
-      border-radius: 8px;
+      border-radius: 7.6px;
       cursor: pointer;
       transition: background 0.2s, transform 0.2s;
+      font-size: 15.2px;
     }
-    .top-buttons button:hover { transform: translateY(-2px); }
+    .top-buttons button:hover { transform: translateY(-1.9px); }
     .add { background: var(--primary); color: #fff; }
     .add:hover { background: var(--primary-dark); }
     .print { background: var(--accent); color: #fff; }
@@ -85,9 +134,9 @@
     .theme-toggle {
       background: #6b7280;
       color: #fff;
-      font-size: 18px;
-      width: 44px;
-      height: 44px;
+      font-size: 17.1px;
+      width: 41.8px;
+      height: 41.8px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -98,20 +147,20 @@
     [data-theme="dark"] .theme-toggle::before { content: '🌙'; }
     .top-panel {
       display: flex;
-      gap: 16px;
+      gap: 15.2px;
       align-items: stretch;
       justify-content: center;
-      margin: 0 auto 24px;
+      margin: 0 auto 22.8px;
       max-width: 100%;
       flex-wrap: nowrap;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
-      padding-bottom: 4px;
+      padding-bottom: 3.8px;
     }
     .panel-card {
       background: var(--card-bg);
-      padding: 18px;
-      border-radius: 12px;
+      padding: 17.1px;
+      border-radius: 11.4px;
       box-shadow: var(--shadow);
       width: var(--panel-width);
       height: var(--panel-height);
@@ -120,72 +169,79 @@
     #handoverHeader { overflow: hidden; }
     #notesCard { overflow: auto; }
     #handoverHeader table {
-      margin: 16px 0 0 0;
+      margin: 15.2px 0 0 0;
       border-collapse: collapse;
       width: 100%;
     }
     #handoverHeader th, #handoverHeader td {
       border: none;
-      padding: 6px;
-      font-size: 14px;
+      padding: 5.7px;
+      font-size: 14.3px;
       vertical-align: top;
     }
     #handoverHeader th { background: var(--bg); }
     #handoverHeader input {
-      width: 60px;
-      padding: 4px;
-      border: 1px solid var(--border);
-      border-radius: 4px;
+      width: 57px;
+      padding: 3.8px;
+      border: 0.95px solid var(--border);
+      border-radius: 3.8px;
       text-align: center;
       background: var(--card-bg);
       color: var(--text);
+      font-size: 14.3px;
     }
-    #notesCard strong { display: block; margin-bottom: 8px; }
+    #notesCard strong { display: block; margin-bottom: 7.6px; font-size: 15.2px; }
     #notesText {
       width: 100%;
-      min-height: 180px;
-      padding: 10px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
+      min-height: 171px;
+      padding: 9.5px;
+      border-radius: 7.6px;
+      border: 0.95px solid var(--border);
       background: var(--bg);
       color: var(--text);
       resize: vertical;
+      font-size: 14.3px;
     }
     .form-section {
       display: none;
       background: var(--card-bg);
-      padding: 24px;
-      border-radius: 12px;
-      max-width: 520px;
-      margin: 0 auto 32px;
+      padding: 22.8px;
+      border-radius: 11.4px;
+      max-width: 494px;
+      margin: 0 auto 30.4px;
       box-shadow: var(--shadow);
     }
     .form-section input, .form-section select, .form-section textarea {
       width: 100%;
-      margin: 6px 0 12px;
-      padding: 10px;
+      margin: 5.7px 0 11.4px;
+      padding: 9.5px;
       border: none;
-      border-radius: 8px;
-      font-size: 14px;
+      border-radius: 7.6px;
+      font-size: 14.3px;
       background: var(--bg);
       color: var(--text);
     }
+    .form-section textarea {
+      min-height: 95px;
+      resize: vertical;
+    }
     .form-section button {
       width: 100%;
-      padding: 12px;
+      padding: 11.4px;
       background: var(--primary);
       color: #fff;
       border: none;
-      border-radius: 8px;
+      border-radius: 7.6px;
       font-weight: 600;
+      font-size: 14.3px;
     }
     .ward-header {
       text-align: center;
-      font-size: 20px;
+      font-size: 19px;
       font-weight: 600;
-      margin: 32px 0 8px;
-      padding: 8px;
-      border-radius: 8px;
+      margin: 30.4px 0 7.6px;
+      padding: 7.6px;
+      border-radius: 7.6px;
     }
     .ward-header.discharge-header {
       cursor: pointer;
@@ -195,39 +251,35 @@
     }
     .ward-header.discharge-header::before {
       content: '►';
-      margin-right: 8px;
-      font-size: 16px;
+      margin-right: 7.6px;
+      font-size: 15.2px;
     }
     .ward-header.discharge-header.expanded::before {
       content: '▼';
     }
     .patient-card {
       background: var(--card-bg);
-      width: 295px;
-      padding: 18px;
-      border-radius: 12px;
+      padding: 17.1px;
+      border-radius: 11.4px;
       box-shadow: var(--shadow);
       position: relative;
-      transition: transform 0.18s, border 0.2s;
-      padding-top: 48px;
+      transition: transform 0.18s;
+      padding-top: 45.6px;
+      font-size: 15px; /* Updated patient card font size */
     }
     .patient-card:hover { transform: scale(1.015); }
-    .patient-card.focused-card {
-      border: 2px solid var(--primary);
-      transform: scale(1.02);
-    }
-    .patient-card p { margin: 4px 0; }
-    .patient-card p strong { font-weight: 700; }
+    .patient-card p { margin: 3.8px 0; font-size: 15px; }
+    .patient-card p strong { font-weight: 700; font-size: 15px; }
     .patient-card strong[onclick] { cursor: pointer; }
     .delete-btn {
       position: absolute;
-      top: 10px;
-      right: 10px;
+      top: 9.5px;
+      right: 9.5px;
       border: none;
-      border-radius: 4px;
-      padding: 4px 8px;
+      border-radius: 3.8px;
+      padding: 3.8px 7.6px;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 12.4px;
       opacity: 0.7;
       background: #e63946;
       color: #fff;
@@ -235,13 +287,13 @@
     .delete-btn:hover { opacity: 0.85; }
     .new-badge {
       position: absolute;
-      top: 10px;
-      right: 40px;
+      top: 9.5px;
+      right: 38px;
       background: var(--new-btn);
       color: #fff;
-      border-radius: 4px;
-      padding: 4px 8px;
-      font-size: 12px;
+      border-radius: 3.8px;
+      padding: 3.8px 7.6px;
+      font-size: 12.4px;
       display: none;
       opacity: 0.7;
       z-index: 10;
@@ -249,13 +301,13 @@
     .new-badge.new-active { display: block; }
     .discharge-badge {
       position: absolute;
-      top: 10px;
-      left: 10px;
+      top: 9.5px;
+      left: 9.5px;
       background: var(--discharge-btn);
       color: #fff;
-      border-radius: 4px;
-      padding: 4px 8px;
-      font-size: 12px;
+      border-radius: 3.8px;
+      padding: 3.8px 7.6px;
+      font-size: 12.4px;
       display: none;
       opacity: 0.9;
       z-index: 10;
@@ -263,24 +315,25 @@
     .discharge-badge.discharge-active {
       display: block !important;
     }
-    .new-checkbox { margin-top: 8px; text-align: left; }
-    .new-checkbox label { display: inline-flex; align-items: center; }
+    .new-checkbox { margin-top: 7.6px; text-align: left; }
+    .new-checkbox label { display: inline-flex; align-items: center; font-size: 15px; }
     .editable {
       border: none;
       background: transparent;
-      border-bottom: 1px dashed var(--editable-border);
-      padding: 0 4px;
-      min-width: 20px;
+      border-bottom: 0.95px dashed var(--editable-border);
+      padding: 0 3.8px;
+      min-width: 19px;
       white-space: pre-wrap;
+      font-size: 15px;
     }
     .editable:focus {
       outline: none;
-      border-bottom: 1px solid var(--editable-focus);
+      border-bottom: 0.95px solid var(--editable-focus);
     }
     .card-grid {
       display: flex;
       flex-wrap: wrap;
-      gap: 16px;
+      gap: 15.2px;
     }
     #ward-Discharge.card-grid {
       display: none;
@@ -292,31 +345,34 @@
       cursor: pointer;
       color: var(--text);
       font-weight: 600;
-      margin: 4px 0;
+      margin: 3.8px 0;
+      font-size: 15px;
     }
-    .hopi-content { display: none; color: var(--text); }
+    .hopi-content { display: none; color: var(--text); font-size: 15px; }
     .hopi-content.expanded { display: block; }
-    .print-window { padding: 20px; }
+    .print-window { padding: 19px; }
     .copy-btn {
-      padding: 10px 20px;
+      padding: 9.5px 19px;
       font-weight: 600;
       background: #6b7280;
       color: #fff;
       border: none;
-      border-radius: 8px;
+      border-radius: 7.6px;
       cursor: pointer;
-      margin-bottom: 10px;
+      margin-bottom: 9.5px;
       transition: background 0.2s;
+      font-size: 14.3px;
     }
     .copy-btn:hover { background: #4b5563; }
-    pre { white-space: pre-wrap; font-family: 'Inter', monospace; }
+    .pre { white-space: pre-wrap; font-family: 'Inter', monospace; font-size: 14.3px; }
     .log-btn {
-      padding: 6px 12px;
+      padding: 5.7px 11.4px;
       border: none;
-      border-radius: 4px;
+      border-radius: 3.8px;
       cursor: pointer;
       color: #fff;
-      margin: 8px 0;
+      margin: 7.6px 0;
+      font-size: 15px;
     }
     .log-btn:disabled {
       cursor: not-allowed;
@@ -329,49 +385,53 @@
       list-style-type: disc;
       margin: 0;
       padding: 0;
-      padding-left: 12px;
-      text-indent: -12px;
+      padding-left: 11.4px;
+      text-indent: -11.4px;
       white-space: pre-wrap;
-      min-height: 20px;
+      min-height: 19px;
+      font-size: 15px;
     }
     .plan-history.expanded + p { display: none; }
     .inline-fields {
       display: flex;
-      gap: 8px;
+      gap: 7.6px;
       align-items: baseline;
     }
     .inline-fields strong {
       flex-shrink: 0;
+      font-size: 15px;
     }
     .inline-fields span.editable {
       display: inline-block;
-      min-width: 50px;
+      min-width: 47.5px;
+      font-size: 15px;
     }
     .age-toggle {
       background: var(--card-bg);
-      padding: 8px;
-      border-radius: 4px;
-      margin-top: 4px;
-      border: 1px solid var(--border);
+      padding: 7.6px;
+      border-radius: 3.8px;
+      margin-top: 3.8px;
+      border: 0.95px solid var(--border);
       display: none;
       text-align: left;
+      font-size: 15px;
     }
     #form-age-toggle {
       display: block;
       background: transparent;
-      padding: 4px 0;
-      margin: 4px 0;
+      padding: 3.8px 0;
+      margin: 3.8px 0;
       border: none;
     }
     #form-age-toggle label {
-      font-size: 12px;
-      margin: 0 8px 0 0;
-      gap: 4px;
+      font-size: 12.4px;
+      margin: 0 7.6px 0 0;
+      gap: 3.8px;
     }
     #form-age-toggle input[type="radio"] {
       appearance: none;
-      width: 8px;
-      height: 8px;
+      width: 7.6px;
+      height: 7.6px;
       border: none;
       border-radius: 50%;
       background: var(--bg);
@@ -387,16 +447,17 @@
     }
     .auto-age-inputs {
       display: flex;
-      gap: 8px;
-      margin-top: 4px;
+      gap: 7.6px;
+      margin-top: 3.8px;
     }
     .auto-age-inputs input {
-      padding: 6px;
-      border: 1px solid var(--editable-border);
-      border-radius: 4px;
+      padding: 5.7px;
+      border: 0.95px solid var(--editable-border);
+      border-radius: 3.8px;
       background: var(--bg);
       color: var(--text);
       width: 100%;
+      font-size: 14.3px;
     }
   </style>
 </head>
@@ -412,7 +473,7 @@
   </div>
   <div class="top-panel">
     <div id="handoverHeader" class="panel-card">
-      <strong>Date:</strong> <span id="handoverDate">2025-09-07</span>
+      <strong>Date:</strong> <span id="handoverDate">2025-09-15</span>
       <table>
         <tbody>
           <tr><th></th><th>Morning</th><th>Evening</th><th>Night</th></tr>
@@ -642,18 +703,36 @@
         alert('Cannot edit age in Auto mode. Switch to Manual mode.');
         return;
       }
-      console.log(`Updating field ${field} for patient ${id} with value:`, value);
-      db.collection('patients').doc(id).update({ [field]: value }).then(() => {
+      const normalizedValue = value.trim();
+      console.log(`Updating field ${field} for patient ${id} with value: "${normalizedValue}"`);
+      db.collection('patients').doc(id).update({ [field]: normalizedValue }).then(() => {
         console.log(`Field ${field} updated successfully for patient ${id}`);
         if (field === 'plan') {
-          refreshButtonState(id);
+          const planEl = document.querySelector(`#plan-content-${id}`);
+          const logBtn = document.querySelector(`.log-btn[onclick="logPlan('${id}')"]`);
+          if (planEl && logBtn) {
+            const currentPlan = planEl.innerText.trim();
+            db.collection('patients').doc(id).get().then(doc => {
+              if (doc.exists) {
+                const lastLoggedPlan = (doc.data().lastLoggedPlan || '').trim();
+                const needsLog = currentPlan !== '' && currentPlan !== lastLoggedPlan;
+                logBtn.disabled = !needsLog;
+                logBtn.innerText = needsLog ? 'Log' : 'Logged';
+                console.log(`Patient ${id}: needsLog=${needsLog}, currentPlan="${currentPlan}", lastLoggedPlan="${lastLoggedPlan}"`);
+              }
+            }).catch(error => {
+              console.error(`Error checking plan state for patient ${id}:`, error);
+              logBtn.disabled = true;
+              logBtn.innerText = 'Logged';
+            });
+          }
         }
         if (field === 'doa') {
           const card = document.querySelector(`.patient-card [data-id="${id}"]`)?.closest('.patient-card');
           if (card) {
             const doaSpan = card.querySelector(`#doa-days-${id}`);
             if (doaSpan) {
-              doaSpan.innerText = `(${calculateDaysAdmitted(value)})`;
+              doaSpan.innerText = `(${calculateDaysAdmitted(normalizedValue)})`;
             }
           }
         }
@@ -672,7 +751,13 @@
         }
       }).catch(error => {
         console.error(`Error updating ${field}:`, error);
-        refreshButtonState(id);
+        if (field === 'plan') {
+          const logBtn = document.querySelector(`.log-btn[onclick="logPlan('${id}')"]`);
+          if (logBtn) {
+            logBtn.disabled = true;
+            logBtn.innerText = 'Logged';
+          }
+        }
       });
     }
     function updateLog(id, newText) {
@@ -729,32 +814,6 @@
           }
           db.collection('patients').doc(id).update(updates).then(() => {
             console.log(`Ward changed to ${newWard} for patient ${id}`);
-            const card = document.querySelector(`.patient-card [data-id="${id}"]`)?.closest('.patient-card');
-            if (card) {
-              const oldWardGrid = document.getElementById(`ward-${oldWard}`);
-              const newWardGrid = document.getElementById(`ward-${newWard}`);
-              if (oldWardGrid && newWardGrid) {
-                oldWardGrid.removeChild(card);
-                newWardGrid.appendChild(card);
-                const select = card.querySelector('select');
-                if (select) select.value = newWard;
-                if (newWard === 'Discharge') {
-                  const timestamp = updates.dischargeTimestamp || Date.now();
-                  const formatted = formatTimestamp(timestamp);
-                  let badge = card.querySelector('.discharge-badge');
-                  if (!badge) {
-                    badge = document.createElement('span');
-                    badge.className = 'discharge-badge discharge-active';
-                    badge.setAttribute('data-id', id);
-                    card.insertBefore(badge, card.firstChild);
-                  }
-                  badge.innerText = `Discharged on ${formatted}`;
-                } else {
-                  const badge = card.querySelector('.discharge-badge');
-                  if (badge) badge.remove();
-                }
-              }
-            }
           }).catch(error => {
             console.error("Error changing ward:", error);
           });
@@ -809,7 +868,7 @@
           const formattedTimestamp = formatTimestamp(timestamp);
           const fullLogEntry = `• ${formattedTimestamp} (${daysAdmitted})\n  ${currentPlan}\n\n`;
 
-          const lastLoggedPlan = doc.data().lastLoggedPlan || '';
+          const lastLoggedPlan = (doc.data().lastLoggedPlan || '').trim();
           const currentLines = currentPlan.split('\n').map(line => line.trim()).filter(line => line !== '');
           const lastLines = lastLoggedPlan.split('\n').map(line => line.trim()).filter(line => line !== '');
           
@@ -839,32 +898,42 @@
             lastLoggedPlan: currentPlan
           }).then(() => {
             console.log('Plan logged successfully for patient', id);
-            refreshButtonState(id);
+            console.log(`Updated lastLoggedPlan to: "${currentPlan}"`);
+            const logBtn = document.querySelector(`.log-btn[onclick="logPlan('${id}')"]`);
+            if (logBtn) {
+              logBtn.disabled = true;
+              logBtn.innerText = 'Logged';
+            }
           }).catch(error => {
             console.error('Error logging plan:', error);
-            refreshButtonState(id);
+            const logBtn = document.querySelector(`.log-btn[onclick="logPlan('${id}')"]`);
+            if (logBtn) {
+              logBtn.disabled = true;
+              logBtn.innerText = 'Logged';
+            }
           });
         }
       });
     }
-    function refreshButtonState(id) {
-      const planEl = document.querySelector(`#plan-content-${id}`);
+    function refreshButtonState(id, currentPlan) {
       const logBtn = document.querySelector(`.log-btn[onclick="logPlan('${id}')"]`);
-      if (!planEl || !logBtn) {
-        console.error(`Cannot find plan or log button for patient ${id}`);
+      if (!logBtn) {
+        console.error(`Cannot find log button for patient ${id}`);
         return;
       }
-      const currentPlan = planEl.innerText.trim();
       db.collection('patients').doc(id).get().then(doc => {
         if (doc.exists) {
-          const lastLoggedPlan = doc.data().lastLoggedPlan || '';
-          const needsLog = currentPlan === '' || currentPlan !== lastLoggedPlan;
+          const lastLoggedPlan = (doc.data().lastLoggedPlan || '').trim();
+          const normalizedCurrentPlan = currentPlan.trim();
+          const needsLog = normalizedCurrentPlan !== '' && normalizedCurrentPlan !== lastLoggedPlan;
           logBtn.disabled = !needsLog;
           logBtn.innerText = needsLog ? 'Log' : 'Logged';
-          console.log(`Patient ${id}: needsLog=${needsLog}, currentPlan="${currentPlan}", lastLoggedPlan="${lastLoggedPlan}"`);
+          console.log(`refreshButtonState for patient ${id}: needsLog=${needsLog}, currentPlan="${normalizedCurrentPlan}", lastLoggedPlan="${lastLoggedPlan}"`);
         }
       }).catch(error => {
         console.error(`Error refreshing button state for patient ${id}:`, error);
+        logBtn.disabled = true;
+        logBtn.innerText = 'Logged';
       });
     }
     function formatTimestamp(timestamp) {
@@ -988,19 +1057,20 @@
                 --text: ${currentTheme === 'dark' ? '#e2e8f0' : '#1d3557'};
                 --card-bg: ${currentTheme === 'dark' ? '#2d3748' : '#ffffff'};
               }
-              body { font-family: 'Inter', sans-serif; padding: 20px; background: var(--bg); color: var(--text); }
+              body { font-family: 'Inter', sans-serif; padding: 19px; background: var(--bg); color: var(--text); }
               .copy-btn {
-                padding: 10px 20px;
+                padding: 9.5px 19px;
                 font-weight: 600;
                 background: #6b7280;
                 color: #fff;
                 border: none;
-                border-radius: 8px;
+                border-radius: 7.6px;
                 cursor: pointer;
-                margin-bottom: 10px;
+                margin-bottom: 9.5px;
+                font-size: 14.3px;
               }
               .copy-btn:hover { background: #4b5563; }
-              pre { white-space: pre-wrap; font-family: 'Inter', monospace; }
+              pre { white-space: pre-wrap; font-family: 'Inter', monospace; font-size: 14.3px; }
             </style>
           </head>
           <body>
@@ -1068,19 +1138,20 @@
                 --text: ${currentTheme === 'dark' ? '#e2e8f0' : '#1d3557'};
                 --card-bg: ${currentTheme === 'dark' ? '#2d3748' : '#ffffff'};
               }
-              body { font-family: 'Inter', sans-serif; padding: 20px; background: var(--bg); color: var(--text); }
+              body { font-family: 'Inter', sans-serif; padding: 19px; background: var(--bg); color: var(--text); }
               .copy-btn {
-                padding: 10px 20px;
+                padding: 9.5px 19px;
                 font-weight: 600;
                 background: #6b7280;
                 color: #fff;
                 border: none;
-                border-radius: 8px;
+                border-radius: 7.6px;
                 cursor: pointer;
-                margin-bottom: 10px;
+                margin-bottom: 9.5px;
+                font-size: 14.3px;
               }
               .copy-btn:hover { background: #4b5563; }
-              pre { white-space: pre-wrap; font-family: 'Inter', monospace; }
+              pre { white-space: pre-wrap; font-family: 'Inter', monospace; font-size: 14.3px; }
             </style>
           </head>
           <body>
@@ -1131,20 +1202,10 @@
         }
       });
     }
-    function focusCard(card) {
-      if (window.matchMedia("(max-width: 768px)").matches) {
-        document.querySelectorAll('.patient-card').forEach(c => c.classList.remove('focused-card'));
-        card.classList.add('focused-card');
-        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setTimeout(() => card.classList.remove('focused-card'), 2000);
-      }
-    }
     function loadPatients() {
       const container = document.getElementById('wardsContainer');
       const wards = ["PW", "GW", "SW", "PVT", "ICU", "NICU", "ER", "Discharge"];
       const wardGrids = {};
-      const wardCounts = {};
-      const patientsByWard = {};
       let patientCards = {};
 
       wards.forEach(w => {
@@ -1153,7 +1214,7 @@
         header.className = 'ward-header';
         header.style.background = `var(--${w})`;
         header.id = `header-${w}`;
-        header.innerText = w === 'Discharge' ? `Discharges` : w;
+        header.innerText = w === 'Discharge' ? `Discharges (0)` : `${w} (0)`;
         if (w === 'Discharge') {
           header.classList.add('discharge-header');
           header.onclick = toggleDischargeWard;
@@ -1168,91 +1229,47 @@
         sec.appendChild(grid);
         container.appendChild(sec);
         wardGrids[w] = grid;
-        wardCounts[w] = 0;
-        patientsByWard[w] = [];
       });
 
-      let initialLoad = true;
       db.collection('patients').onSnapshot(snap => {
-        if (initialLoad) {
-          container.innerHTML = '';
-          wards.forEach(w => {
-            const sec = document.createElement('div');
-            const header = document.createElement('h2');
-            header.className = 'ward-header';
-            header.style.background = `var(--${w})`;
-            header.id = `header-${w}`;
-            header.innerText = w === 'Discharge' ? `Discharges` : w;
-            if (w === 'Discharge') {
-              header.classList.add('discharge-header');
-              header.onclick = toggleDischargeWard;
-            }
-            sec.appendChild(header);
-            const grid = document.createElement('div');
-            grid.className = 'card-grid';
-            grid.id = `ward-${w}`;
-            if (w !== 'Discharge') {
-              grid.classList.add('expanded');
-            }
-            sec.appendChild(grid);
-            container.appendChild(sec);
-            wardGrids[w] = grid;
-            wardCounts[w] = 0;
-            patientsByWard[w] = [];
-          });
-          patientCards = {};
-          initialLoad = false;
-        }
-
+        const wardCounts = {};
+        const patientsByWard = {};
+        wards.forEach(w => {
+          wardCounts[w] = 0;
+          patientsByWard[w] = [];
+        });
         let totalActive = 0;
         const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
         const now = Date.now();
 
-        snap.docChanges().forEach(change => {
-          const doc = change.doc;
+        Object.keys(patientCards).forEach(id => {
+          if (patientCards[id]) {
+            patientCards[id].remove();
+          }
+        });
+        patientCards = {};
+
+        snap.forEach(doc => {
           const d = doc.data();
           const id = doc.id;
-          let ward = d.ward;
+          const ward = d.ward;
 
-          if (change.type === 'removed' || (ward === 'Discharge' && (d.dischargeTimestamp || d.timestamp || now) < now - oneWeekMs)) {
-            if (change.type !== 'removed') {
-              console.log(`Deleting patient ${id} from Discharges: dischargeTimestamp=${d.dischargeTimestamp} is over a week old`);
-              db.collection('patients').doc(id).delete().catch(error => {
-                console.error(`Error deleting patient ${id}:`, error);
-              });
-            }
-            if (patientCards[id]) {
-              patientCards[id].remove();
-              delete patientCards[id];
-            }
-            const oldWard = Object.keys(patientsByWard).find(w => patientsByWard[w].some(p => p.id === id));
-            if (oldWard) {
-              patientsByWard[oldWard] = patientsByWard[oldWard].filter(p => p.id !== id);
-              wardCounts[oldWard] = Math.max(0, (wardCounts[oldWard] || 0) - 1);
-            }
+          if (!wards.includes(ward)) {
+            console.warn(`Invalid ward for patient ${id}: ${ward}`);
             return;
           }
 
-          if (!wards.includes(ward)) return;
-
-          if (change.type === 'added' || change.type === 'modified') {
-            if (change.type === 'modified') {
-              const oldWard = Object.keys(patientsByWard).find(w => patientsByWard[w].some(p => p.id === id));
-              if (oldWard && oldWard !== ward) {
-                patientsByWard[oldWard] = patientsByWard[oldWard].filter(p => p.id !== id);
-                wardCounts[oldWard] = Math.max(0, (wardCounts[oldWard] || 0) - 1);
-              }
-              if (patientCards[id]) {
-                patientCards[id].remove();
-                delete patientCards[id];
-              }
-            }
-
-            patientsByWard[ward] = patientsByWard[ward].filter(p => p.id !== id);
-            patientsByWard[ward].push({ id, data: d });
-            wardCounts[ward] = (wardCounts[ward] || 0) + 1;
-            if (ward !== 'Discharge') totalActive++;
+          if (ward === 'Discharge' && (d.dischargeTimestamp || d.timestamp || now) < now - oneWeekMs) {
+            console.log(`Deleting patient ${id} from Discharges: dischargeTimestamp=${d.dischargeTimestamp} is over a week old`);
+            db.collection('patients').doc(id).delete().catch(error => {
+              console.error(`Error deleting patient ${id}:`, error);
+            });
+            return;
           }
+
+          patientsByWard[ward].push({ id, data: d });
+          wardCounts[ward]++;
+          if (ward !== 'Discharge') totalActive++;
         });
 
         document.getElementById('totalCount').innerText = totalActive;
@@ -1273,11 +1290,8 @@
           }
 
           wardGrids[w].innerHTML = '';
+
           patientsByWard[w].forEach(({ id, data: d }) => {
-            if (patientCards[id]) {
-              patientCards[id].remove();
-              delete patientCards[id];
-            }
             console.log(`Rendering patient ${id}: ward=${d.ward}, dischargeTimestamp=${d.dischargeTimestamp}`);
             const daysAdmitted = calculateDaysAdmitted(d.doa);
             let computedAge = d.age;
@@ -1297,6 +1311,10 @@
               dischargeTag = `<span class="discharge-badge discharge-active" data-id="${id}">Discharged on ${formatted}</span>`;
               console.log(`Adding discharge badge for patient ${id}: Discharged on ${formatted}`);
             }
+            const currentPlan = (d.plan || '').trim();
+            const lastLoggedPlan = (d.lastLoggedPlan || '').trim();
+            const needsLog = currentPlan !== '' && currentPlan !== lastLoggedPlan;
+            console.log(`Patient ${id}: needsLog=${needsLog}, currentPlan="${currentPlan}", lastLoggedPlan="${lastLoggedPlan}"`);
             const card = document.createElement('div');
             card.className = 'patient-card';
             card.innerHTML = `
@@ -1333,7 +1351,7 @@
                 <div contenteditable class="editable" onblur="updateLog('${id}', this.innerText)">${logs}</div>
               </div>
               <p><span contenteditable class="editable" id="plan-content-${id}" onblur="updateField('${id}', 'plan', this.innerText)">${d.plan || ''}</span></p>
-              <button class="log-btn" onclick="logPlan('${id}')">Log</button>
+              <button class="log-btn" onclick="logPlan('${id}')" ${needsLog ? '' : 'disabled'}>${needsLog ? 'Log' : 'Logged'}</button>
               <p><strong>Ward:</strong>
                 <select onchange="changeWard('${id}', this.value)">
                   ${wards.map(wr => `<option value="${wr}" ${wr === d.ward ? 'selected' : ''}>${wr}</option>`).join('')}
@@ -1343,17 +1361,8 @@
                 <label><input type="checkbox" ${d.isNew ? 'checked' : ''} onchange="toggleNewTag('${id}')"> New</label>
               </p>
             `;
-            card.addEventListener('touchstart', () => focusCard(card));
-            const logBtn = card.querySelector('.log-btn');
-            const currentPlan = d.plan || '';
-            const lastLoggedPlan = d.lastLoggedPlan || '';
-            const needsLog = currentPlan === '' || currentPlan !== lastLoggedPlan;
-            logBtn.disabled = !needsLog;
-            logBtn.innerText = needsLog ? 'Log' : 'Logged';
-            console.log(`Patient ${id}: needsLog=${needsLog}, currentPlan="${currentPlan}", lastLoggedPlan="${lastLoggedPlan}"`);
             wardGrids[w].appendChild(card);
             patientCards[id] = card;
-            refreshButtonState(id);
             if (d.ward === 'Discharge') {
               const badge = card.querySelector('.discharge-badge');
               if (badge) {
