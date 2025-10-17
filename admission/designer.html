@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admission Form Designer — Anchors Exporter</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script>pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';</script>
+  <!-- (Optional) html2canvas + jsPDF for quick raster preview export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root{ --ring: rgba(59,130,246,.35) }
+    html,body{ height:100%; }
+    body{ font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial; background:linear-gradient(135deg,#eef2ff,#f0fdf4); }
+
+    #chrome{ max-width:1200px; margin:0 auto; padding:16px; }
+    #toolbar{ position:sticky; top:0; z-index:50; display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; padding:.5rem; background:rgba(255,255,255,.92); backdrop-filter:blur(6px); border:1px solid #e5e7eb; border-radius:14px; box-shadow:0 8px 30px rgba(0,0,0,.08); }
+    .btn{ display:inline-flex; align-items:center; justify-content:center; gap:.35rem; padding:.55rem .8rem; border:1px solid #e5e7eb; border-radius:10px; background:#fff; color:#0f172a; font-weight:600; }
+    .btn-primary{ background:#2563eb; color:#fff; border-color:#1d4ed8; }
+
+    #stage{ max-height:calc(100vh - 160px); overflow:auto; background:#fff; border:1px solid #e5e7eb; border-radius:16px; padding:12px; }
+    #pages{ display:flex; flex-direction:column; gap:22px; align-items:center; }
+
+    .page{ position:relative; }
+    .page canvas{ display:block; border-radius:0; box-shadow:0 8px 24px rgba(0,0,0,.07); }
+
+    .box{ position:absolute; border:1px dashed transparent; background:transparent; color:#0f172a; min-width:60px; min-height:24px; border-radius:8px; padding:6px 8px; line-height:1.2; outline:none; resize:both; overflow:hidden; white-space:pre-wrap; }
+    .box.sel{ border-color:#3b82f6; box-shadow:0 0 0 4px var(--ring); background:rgba(255,255,255,.9) }
+
+    .overlay{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(255,255,255,.9); border-radius:16px; z-index:30 }
+    .spinner{ width:42px; height:42px; border:4px solid rgba(0,0,0,.12); border-top-color:#3b82f6; border-radius:9999px; animation:spin 1s linear infinite }
+    @keyframes spin{ to{ transform:rotate(360deg) } }
+
+    @media print{ body{ background:#fff } #chrome>*:not(#stage){ display:none!important } #stage{ border:0; padding:0 } .page canvas{ box-shadow:none } .box{ border:0!important; box-shadow:none!important; background:transparent!important }
+    }
+  </style>
+</head>
+<body>
+  <div id="chrome" class="space-y-3">
+    <header class="text-center">
+      <h1 class="text-2xl font-extrabold tracking-tight text-slate-900">Admission Form Designer</h1>
+      <p class="text-slate-600 text-sm">Place & name fields, then Export JSON anchors. Default loads Admission.pdf from repo root.</p>
+    </header>
+
+    <div id="toolbar">
+      <!-- Source selection -->
+      <label class="btn" title="Load local PDF">
+        <input id="fileInput" type="file" accept="application/pdf" class="hidden" />
+        Load local PDF
+      </label>
+      <div class="flex items-center gap-2 border border-slate-200 rounded-xl bg-white px-2 py-1 text-sm">
+        <span class="text-slate-600">or URL</span>
+        <input id="urlInput" type="text" class="w-64 outline-none" placeholder="https://…/Admission.pdf" />
+        <button id="useUrlBtn" class="btn">Use</button>
+      </div>
+
+      <div class="w-px h-6 bg-slate-200 mx-1"></div>
+
+      <!-- Mode -->
+      <div class="flex items-center gap-2 border border-slate-200 rounded-xl bg-white px-2 py-1 text-sm">
+        <span class="text-slate-600">Mode</span>
+        <select id="modeSel" class="outline-none bg-transparent">
+          <option value="fill">Fill</option>
+          <option value="design" selected>Design</option>
+        </select>
+      </div>
+
+      <button id="addFieldBtn" class="btn" title="Add field; then click on page to place">+ Field</button>
+      <button id="delFieldBtn" class="btn" title="Delete selected">Delete</button>
+      <button id="dupFieldBtn" class="btn" title="Duplicate selected">Duplicate</button>
+
+      <div class="flex items-center gap-2 border border-slate-200 rounded-xl bg-white px-2 py-1 text-sm">
+        <span class="text-slate-600">Font</span>
+        <select id="fontSizeSel" class="outline-none bg-transparent">
+          <option>12</option><option>14</option><option selected>16</option><option>18</option><option>20</option><option>24</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2 border border-slate-200 rounded-xl bg-white px-2 py-1 text-sm">
+        <span class="text-slate-600">Line</span>
+        <select id="lineHeightSel" class="outline-none bg-transparent">
+          <option>1.0</option><option>1.1</option><option selected>1.2</option><option>1.3</option><option>1.4</option><option>1.5</option><option>1.6</option><option>1.8</option><option>2.0</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2 border border-slate-200 rounded-xl bg-white px-2 py-1 text-sm">
+        <span class="text-slate-600">Name</span>
+        <input id="fieldName" class="w-40 outline-none" placeholder="patient_name" />
+        <button id="applyNameBtn" class="btn">Apply</button>
+      </div>
+
+      <div class="w-px h-6 bg-slate-200 mx-1"></div>
+
+      <button id="saveAnchorsBtn" class="btn" title="Save anchors (browser)">Save</button>
+      <button id="loadAnchorsBtn" class="btn" title="Load anchors (browser)">Load</button>
+      <button id="exportAnchorsBtn" class="btn btn-primary" title="Download anchors JSON">Export JSON</button>
+      <label class="btn" title="Import anchors JSON">
+        <input id="importAnchorsInput" type="file" accept="application/json" class="hidden" />
+        Import JSON
+      </label>
+
+      <div class="w-px h-6 bg-slate-200 mx-1"></div>
+
+      <button id="exportPdfBtn" class="btn" title="Quick raster PDF preview">Export PDF</button>
+    </div>
+
+    <div id="stage" class="relative rounded-2xl border border-slate-200 bg-white">
+      <div id="pages"></div>
+      <div id="overlay" class="overlay">
+        <div class="spinner"></div>
+        <p class="mt-4 text-slate-700 font-medium">Loading…</p>
+      </div>
+    </div>
+
+    <p id="saveBadge" class="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-full w-fit hidden">Saved</p>
+  </div>
+
+  <script>
+    // ===== Config =====
+    const DEFAULT_PDF_URL = './Admission.pdf';
+
+    // ===== Elements =====
+    const fileInput = document.getElementById('fileInput');
+    const urlInput  = document.getElementById('urlInput');
+    const useUrlBtn = document.getElementById('useUrlBtn');
+
+    const modeSel = document.getElementById('modeSel');
+
+    const addFieldBtn = document.getElementById('addFieldBtn');
+    const delFieldBtn = document.getElementById('delFieldBtn');
+    const dupFieldBtn = document.getElementById('dupFieldBtn');
+
+    const fontSizeSel = document.getElementById('fontSizeSel');
+    const lineHeightSel = document.getElementById('lineHeightSel');
+    const fieldNameInput = document.getElementById('fieldName');
+    const applyNameBtn = document.getElementById('applyNameBtn');
+
+    const saveAnchorsBtn = document.getElementById('saveAnchorsBtn');
+    const loadAnchorsBtn = document.getElementById('loadAnchorsBtn');
+    const exportAnchorsBtn = document.getElementById('exportAnchorsBtn');
+    const importAnchorsInput = document.getElementById('importAnchorsInput');
+
+    const exportPdfBtn = document.getElementById('exportPdfBtn');
+
+    const stage = document.getElementById('stage');
+    const pagesRoot = document.getElementById('pages');
+    const overlay = document.getElementById('overlay');
+    const saveBadge = document.getElementById('saveBadge');
+
+    // ===== State =====
+    let pdfDoc = null; let fileKey = null; let adding=false; let selected=null;
+    // anchorsByPage: {1:[{name,x,y,w,h,fs,lh}], ...}
+    let anchorsByPage = {}; let values = {};
+
+    // ===== Helpers =====
+    function setEnabled(enabled){
+      [addFieldBtn,delFieldBtn,dupFieldBtn,saveAnchorsBtn,loadAnchorsBtn,exportAnchorsBtn,exportPdfBtn,applyNameBtn].forEach(b=>b.disabled=!enabled);
+      const design = enabled && modeSel.value==='design';
+      fontSizeSel.disabled = !design; lineHeightSel.disabled = !design;
+    }
+
+    function storageKey(){ return 'anchors:'+ (fileKey||'local'); }
+
+    function download(filename, data, type='application/json'){
+      const blob = new Blob([data], {type});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+    }
+
+    function toScreen(a, cw, ch){ return { left:a.x*cw, top:a.y*ch, width:a.w*cw, height:a.h*ch } }
+
+    function showSavedBadge(){ saveBadge.classList.remove('hidden'); clearTimeout(showSavedBadge._t); showSavedBadge._t=setTimeout(()=>saveBadge.classList.add('hidden'), 1200); }
+
+    function getLineHeightRatio(el){
+      const inline = parseFloat(el.style.lineHeight);
+      if(!isNaN(inline) && inline > 0) return inline;
+      const cs = getComputedStyle(el);
+      const lhPx = parseFloat(cs.lineHeight);
+      const fsPx = parseFloat(cs.fontSize) || 16;
+      if(!isNaN(lhPx) && !isNaN(fsPx) && fsPx>0) return lhPx / fsPx;
+      return 1.2;
+    }
+
+    // ===== PDF Rendering (full-width pages, stacked) =====
+    async function renderAllPages(){
+      pagesRoot.innerHTML='';
+      const viewport1 = (await pdfDoc.getPage(1)).getViewport({ scale:1 });
+      const stageW = Math.max(stage.clientWidth - 24, 320);
+      const scale = stageW / viewport1.width; // fit width
+
+      for(let p=1; p<=pdfDoc.numPages; p++){
+        const page = await pdfDoc.getPage(p);
+        const vp = page.getViewport({ scale });
+        const pageWrap = document.createElement('div'); pageWrap.className='page'; pageWrap.dataset.page = String(p);
+        pageWrap.style.width = vp.width+'px'; pageWrap.style.height = vp.height+'px';
+
+        const canvas = document.createElement('canvas'); canvas.width = vp.width; canvas.height = vp.height;
+        pageWrap.appendChild(canvas);
+        pagesRoot.appendChild(pageWrap);
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+
+        (anchorsByPage[p]||[]).forEach(a=> spawnBox(p, a));
+
+        pageWrap.addEventListener('click', (e)=>{
+          if(!adding || modeSel.value!=='design') return;
+          const r = pageWrap.getBoundingClientRect();
+          const x = (e.clientX - r.left) / canvas.width; // normalized
+          const y = (e.clientY - r.top)  / canvas.height;
+          const a = { name:'', x: Math.max(0, Math.min(1, x-0.15)), y: Math.max(0, Math.min(1, y-0.03)), w:0.3, h:0.06, fs: parseInt(fontSizeSel.value)||16, lh: parseFloat(lineHeightSel.value)||1.2 };
+          anchorsByPage[p] = anchorsByPage[p]||[]; anchorsByPage[p].push(a);
+          spawnBox(p, a); adding=false; document.body.style.cursor='default'; autoSaveAnchors();
+        });
+      }
+      overlay.classList.add('hidden');
+    }
+
+    let _resizeTO=null; window.addEventListener('resize', ()=>{ if(!pdfDoc) return; clearTimeout(_resizeTO); _resizeTO=setTimeout(async()=>{ await renderAllPages(); }, 150); });
+
+    async function loadPdf(url){
+      try{
+        overlay.classList.remove('hidden'); setEnabled(false);
+        pdfDoc = await pdfjsLib.getDocument(url).promise; await renderAllPages(); setEnabled(true);
+      }catch(e){ console.error(e); alert('Failed to load PDF.'); setEnabled(false); }
+      finally{ overlay.classList.add('hidden'); }
+    }
+
+    // ===== Boxes =====
+    function spawnBox(pageNo, a){
+      const pageWrap = [...pagesRoot.children].find(el=>el.dataset.page==String(pageNo)); if(!pageWrap) return;
+      const tb = document.createElement('div'); tb.className='box'; tb.contentEditable=true; tb.dataset.page = String(pageNo); tb.dataset.name=a.name||''; tb.style.fontSize=(a.fs||16)+'px'; tb.style.lineHeight = (a.lh || 1.2);
+      const s = toScreen(a, pageWrap.clientWidth, pageWrap.clientHeight);
+      tb.style.left=s.left+'px'; tb.style.top=s.top+'px'; tb.style.width=s.width+'px'; tb.style.height=s.height+'px';
+      tb.textContent = values[a.name||''] || '';
+
+      tb.addEventListener('input', ()=>{ if(tb.dataset.name) values[tb.dataset.name]=tb.textContent; autoSaveAnchors(); });
+
+      tb.addEventListener('pointerdown', (e)=>{
+        if(modeSel.value!=='design') return; tb.classList.add('sel'); selected=tb; tb.setPointerCapture(e.pointerId);
+        tb._drag=true; tb._sx=e.clientX; tb._sy=e.clientY; tb._sl=parseFloat(tb.style.left)||0; tb._st=parseFloat(tb.style.top)||0;
+        fieldNameInput.value = tb.dataset.name||''; fontSizeSel.value = parseInt(tb.style.fontSize)||16; lineHeightSel.value = (Math.round(getLineHeightRatio(tb)*10)/10).toFixed(1);
+      });
+      tb.addEventListener('pointermove', (e)=>{
+        if(modeSel.value!=='design') return; if(!tb._drag) return; const dx=e.clientX-tb._sx, dy=e.clientY-tb._sy; tb.style.left=(tb._sl+dx)+'px'; tb.style.top=(tb._st+dy)+'px';
+      });
+      tb.addEventListener('pointerup', ()=>{ tb._drag=false; autoSaveAnchors(); });
+      tb.addEventListener('click', (e)=> e.stopPropagation());
+      tb.addEventListener('blur', ()=>{ if(tb.dataset.name) values[tb.dataset.name]=tb.textContent; autoSaveAnchors(); });
+
+      pageWrap.appendChild(tb); return tb;
+    }
+
+    function getAnchorsFromDom(){
+      const out={};
+      [...pagesRoot.children].forEach(pageWrap=>{
+        const p = parseInt(pageWrap.dataset.page);
+        const cw = pageWrap.clientWidth, ch = pageWrap.clientHeight;
+        const list = [...pageWrap.querySelectorAll('.box')].map(tb=>({
+          name: tb.dataset.name||'',
+          x: (parseFloat(tb.style.left)||0)/cw,
+          y: (parseFloat(tb.style.top)||0)/ch,
+          w: (tb.offsetWidth)/cw,
+          h: (tb.offsetHeight)/ch,
+          fs: parseInt(tb.style.fontSize)||16,
+          lh: getLineHeightRatio(tb)
+        }));
+        out[p]=list;
+      });
+      return out;
+    }
+
+    function selectBox(tb){ pagesRoot.querySelectorAll('.box').forEach(b=>b.classList.remove('sel')); selected=tb; if(tb) tb.classList.add('sel'); }
+    function deleteSelected(){ if(!selected) return; selected.remove(); selected=null; autoSaveAnchors(); }
+    function duplicateSelected(){ if(!selected) return; const pageWrap = selected.closest('.page'); const p = parseInt(pageWrap.dataset.page); const cw=pageWrap.clientWidth, ch=pageWrap.clientHeight; const a = { name:(selected.dataset.name||'')+'_copy', x:(parseFloat(selected.style.left)||0)/cw + 0.02, y:(parseFloat(selected.style.top)||0)/ch + 0.02, w:(selected.offsetWidth)/cw, h:(selected.offsetHeight)/ch, fs: parseInt(selected.style.fontSize)||16, lh: getLineHeightRatio(selected) }; a.x=Math.min(a.x,0.95); a.y=Math.min(a.y,0.95); anchorsByPage[p]=anchorsByPage[p]||[]; anchorsByPage[p].push(a); spawnBox(p,a); autoSaveAnchors(); }
+    function applyName(){ if(!selected) return; const name = fieldNameInput.value.trim(); selected.dataset.name = name; if(name && !values[name]) values[name]=''; autoSaveAnchors(); }
+    function applyFontSize(){ if(!selected) return; selected.style.fontSize = fontSizeSel.value+'px'; autoSaveAnchors(); }
+    function applyLineHeight(){ if(!selected) return; selected.style.lineHeight = lineHeightSel.value; autoSaveAnchors(); }
+
+    // ===== Local persistence (anchors + values) =====
+    function saveAnchors(){ anchorsByPage = getAnchorsFromDom(); const payload = { anchorsByPage, values, version:3 }; localStorage.setItem(storageKey(), JSON.stringify(payload)); showSavedBadge(); }
+    function loadAnchors(){ const raw = localStorage.getItem(storageKey()); if(!raw) return alert('No saved anchors for this file.'); try{ const p = JSON.parse(raw); anchorsByPage = p.anchorsByPage||{}; values = p.values||{}; renderAllPages(); showSavedBadge(); }catch(e){ alert('Failed to parse anchors JSON.'); } }
+    function exportAnchors(){ const data = JSON.stringify({ anchorsByPage, version:3 }, null, 2); const base = (fileKey||'form'); download('anchors.json', data); }
+    function autoSaveAnchors(){ clearTimeout(autoSaveAnchors._t); autoSaveAnchors._t = setTimeout(saveAnchors, 350); }
+
+    importAnchorsInput.addEventListener('change', async (e)=>{ const f = e.target.files?.[0]; if(!f) return; const text = await f.text(); try{ const p = JSON.parse(text); anchorsByPage = p.anchorsByPage||{}; values = p.values||{}; renderAllPages(); showSavedBadge(); }catch(err){ alert('Invalid JSON'); } });
+
+    // ===== Quick raster export (for visual checking only) =====
+    async function exportAllPages(){ if(!pdfDoc) return; const { jsPDF } = window.jspdf; const firstPageWrap = pagesRoot.querySelector('.page'); if(!firstPageWrap) return; const pxW = firstPageWrap.clientWidth, pxH = firstPageWrap.clientHeight; const doc = new jsPDF('p','px',[pxW,pxH]); overlay.classList.remove('hidden'); overlay.querySelector('p').textContent='Exporting…'; try{ const pageEls = [...pagesRoot.children]; for(let i=0;i<pageEls.length;i++){ const el = pageEls[i]; const dataUrl = await html2canvas(el,{scale:2,backgroundColor:null}).then(c=>c.toDataURL('image/jpeg', .95)); if(i>0) doc.addPage([el.clientWidth, el.clientHeight]); doc.addImage(dataUrl,'JPEG',0,0,el.clientWidth, el.clientHeight); } doc.save('preview-raster.pdf'); } finally { overlay.classList.add('hidden'); } }
+
+    // ===== Events =====
+    pagesRoot.addEventListener('click', (e)=>{ const tb = e.target.closest('.box'); selectBox(tb||null); });
+    addFieldBtn.addEventListener('click', ()=>{ if(!pdfDoc) return; if(modeSel.value!=='design') return; adding=true; document.body.style.cursor='crosshair'; });
+    delFieldBtn.addEventListener('click', deleteSelected);
+    dupFieldBtn.addEventListener('click', duplicateSelected);
+    applyNameBtn.addEventListener('click', applyName);
+    fontSizeSel.addEventListener('change', applyFontSize);
+    lineHeightSel.addEventListener('change', applyLineHeight);
+
+    exportPdfBtn.addEventListener('click', exportAllPages);
+
+    saveAnchorsBtn.addEventListener('click', saveAnchors);
+    loadAnchorsBtn.addEventListener('click', loadAnchors);
+    exportAnchorsBtn.addEventListener('click', exportAnchors);
+
+    fileInput.addEventListener('change', async (e)=>{ const f=e.target.files?.[0]; if(!f) return; if(f.type!=='application/pdf'){ alert('Choose a PDF'); return; } if(window._url) URL.revokeObjectURL(window._url); window._url = URL.createObjectURL(f); fileKey = f.name; anchorsByPage={}; values={}; await loadPdf(window._url); setEnabled(true); });
+    useUrlBtn.addEventListener('click', async ()=>{ const url=(urlInput.value||'').trim(); if(!url){ alert('Enter a PDF URL'); return; } fileKey=url.split('/').pop()||'remote'; anchorsByPage={}; values={}; await loadPdf(url); setEnabled(true); });
+
+    modeSel.addEventListener('change', ()=>{ const design=modeSel.value==='design'; fontSizeSel.disabled=!design; lineHeightSel.disabled=!design; });
+
+    (async function init(){ document.getElementById('urlInput').value = DEFAULT_PDF_URL; fileKey = DEFAULT_PDF_URL.split('/').pop()||'remote'; await loadPdf(DEFAULT_PDF_URL); setEnabled(true); })();
+  </script>
+</body>
+</html>
