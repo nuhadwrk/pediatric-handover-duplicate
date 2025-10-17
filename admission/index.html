@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <title>Admission Form</title>
+
+  <!-- Tailwind (UI only) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- PDF.js (screen render) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+  </script>
+
+  <!-- pdf-lib (vector export/print) -->
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
+  <!-- Firebase (compat, no auth) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root { --ring: rgba(59,130,246,.35); }
+    html, body { height: 100%; margin: 0; }
+    html { -webkit-text-size-adjust: 100%; font-size: 16px; }
+    body {
+      font-family: Helvetica, Arial, sans-serif;
+      font-kerning: normal;
+      background: #f5f7fa;
+      color: #1e293b;
+      padding-bottom: 80px; /* Prevents action bar occlusion */
+      padding-top: 20px; /* Add space to prevent top cutoff on desktop */
+    }
+
+    #chrome {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: clamp(8px, 2vw, 16px);
+      transform-origin: top center;
+    }
+
+    /* Apply 80% zoom on desktop */
+    @media (min-width: 640px) {
+      #chrome {
+        transform: scale(0.8);
+      }
+    }
+
+    #stage {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 8px;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .page-sizer {
+      position: relative;
+      width: var(--w);
+      height: var(--h);
+      margin: 0 auto;
+    }
+    .page {
+      position: relative;
+      width: var(--bw);
+      height: var(--bh);
+      transform-origin: top left;
+      transform: scale(var(--s));
+    }
+    .page canvas {
+      display: block;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      transform: translateZ(0);
+      image-rendering: crisp-edges; /* Optimize for sharpness */
+      image-rendering: pixelated; /* Firefox fallback */
+    }
+
+    .box {
+      position: absolute;
+      background: transparent;
+      color: #1e293b;
+      min-width: 25px;
+      min-height: 16px;
+      border-radius: 4px;
+      padding: 2px 4px;
+      line-height: 1.2;
+      outline: none;
+      overflow: hidden; /* Enforce no scrolling */
+      max-height: 100%; /* Clip content */
+      white-space: pre-wrap;
+      user-select: text;
+      touch-action: manipulation;
+      font-size: inherit;
+      font-family: Helvetica, Arial, sans-serif;
+      z-index: 10; /* Prevent overlap */
+    }
+    .box:focus { box-shadow: 0 0 0 3px var(--ring); }
+    .box.disabled { background: #f1f5f9; opacity: .7; cursor: not-allowed; }
+
+    #overlay, #viewOverlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,.8);
+      border-radius: 12px;
+      z-index: 20;
+      font-weight: 600;
+    }
+    #overlay::before {
+      content: '';
+      width: 24px; height: 24px; margin-right: 8px;
+      border: 3px solid #ccc; border-top-color: #2563eb;
+      border-radius: 50%; animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #actionBar {
+      position: fixed; bottom: 16px; right: 16px; z-index: 50;
+      display: flex; gap: 8px; padding: 8px; background: rgba(255,255,255,.95);
+      border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.1);
+    }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; font-weight: 600; }
+    .btn-primary { background: #2563eb; color: #fff; border-color: #1d4ed8; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    select.btn { padding: 6px 8px; font-size: 14px; }
+
+    #saveBadge {
+      position: fixed; top: 16px; right: 16px; z-index: 60;
+      font-size: 14px; padding: 6px 12px; border-radius: 12px;
+      background: #ecfdf5; color: #065f46; border: 1px solid #d1fae5;
+      opacity: 0; transition: opacity .3s ease;
+    }
+    #saveBadge.visible { opacity: 1; }
+
+    /* Card styling for admissions and templates */
+    .card {
+      width: auto;
+      min-width: 200px;
+      max-width: 100%;
+      overflow-wrap: break-word;
+    }
+    .card h3 {
+      white-space: normal;
+      word-wrap: break-word;
+      max-width: 100%;
+    }
+
+    @media (max-width: 640px) {
+      #chrome { padding: 8px; }
+      #actionBar { left: 8px; right: 8px; bottom: 8px; padding: 6px; border-radius: 8px; flex-wrap: wrap; }
+      .btn { padding: 6px 10px; font-size: 12px; }
+      #stage { padding: 8px; }
+      body { padding-bottom: 200px; }
+      #templatesSection { margin-bottom: 100px; }
+      .card { min-width: 100%; } /* Full width on mobile */
+    }
+    @media print {
+      body, #chrome, #stage, .page-sizer, .page, .box, canvas { display: none !important; }
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div id="chrome" class="space-y-4">
+    <header class="text-center pt-4">
+      <h1 class="text-2xl font-bold">Admission Form</h1>
+      <p class="text-slate-600 text-sm">Fill and manage admission forms and templates</p>
+    </header>
+
+    <div id="stage" class="relative">
+      <div id="pages" class="flex flex-col items-center gap-3 relative">
+        <div id="overlay">Loading…</div>
+        <div id="viewOverlay" class="hidden">
+          <div class="text-center">
+            <p>Viewing Template – Editing Disabled</p>
+            <button id="closeViewBtn" class="btn btn-primary mt-4">Close View</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button id="addToHandoverBtn" class="btn btn-primary mt-4" style="display: none;">Add to Handover</button>
+
+    <section id="admissionsSection" class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-lg font-bold">Admissions</h2>
+      </div>
+      <div id="admissionsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+    </section>
+
+    <section id="templatesSection" class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-lg font-bold">Templates</h2>
+      </div>
+      <div id="templatesList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+    </section>
+  </div>
+
+  <div id="actionBar">
+    <button id="newAdmissionBtn" class="btn btn-primary">New Admission</button>
+    <button id="newTemplateBtn" class="btn btn-primary">New Template</button>
+    <button id="saveBtn" class="btn btn-primary">Save</button>
+    <select id="fontSizeSelector" class="btn">
+      <option value="8">8px</option>
+      <option value="9">9px</option>
+      <option value="10">10px</option>
+      <option value="11">11px</option>
+      <option value="12">12px</option>
+      <option value="13" selected>13px</option>
+      <option value="14">14px</option>
+      <option value="15">15px</option>
+      <option value="16">16px</option>
+      <option value="17">17px</option>
+      <option value="18">18px</option>
+      <option value="20">20px</option>
+    </select>
+    <select id="lineHeightSelector" class="btn">
+      <option value="1.0">1.0</option>
+      <option value="1.1">1.1</option>
+      <option value="1.2">1.2</option>
+      <option value="1.3" selected>1.3</option>
+      <option value="1.4">1.4</option>
+      <option value="1.5">1.5</option>
+    </select>
+    <button id="printBtn" class="btn" title="Print">Print</button>
+    <button id="exportBtn" class="btn" title="Download PDF">Download</button>
+    <button id="copyTextBtn" class="btn" title="Copy Text">Copy Text</button>
+  </div>
+  <span id="saveBadge" class="">Saved</span>
+
+  <script>
+    // ========= CONFIG =========
+    const PDF_URL = 'https://raw.githubusercontent.com/nuhadwrk/admission/main/Admission.pdf';
+    const ANCHORS_URL = 'https://raw.githubusercontent.com/nuhadwrk/admission/main/anchors.json';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCVX1eynTqjloTeEOUNPZ4ctn99VkMXAhU",
+      authDomain: "admission-8236a.firebaseapp.com",
+      projectId: "admission-8236a",
+      storageBucket: "admission-8236a.firebasestorage.app",
+      messagingSenderId: "1095611649881",
+      appId: "1:1095611649881:web:f9e6f82ba6f469decd0648"
+    };
+
+    // ========= ELEMENTS =========
+    const pagesRoot = document.getElementById('pages');
+    const overlay = document.getElementById('overlay');
+    const viewOverlay = document.getElementById('viewOverlay');
+    const closeViewBtn = document.getElementById('closeViewBtn');
+    const stage = document.getElementById('stage');
+    const saveBadge = document.getElementById('saveBadge');
+    const newAdmissionBtn = document.getElementById('newAdmissionBtn');
+    const newTemplateBtn = document.getElementById('newTemplateBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const printBtn = document.getElementById('printBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const copyTextBtn = document.getElementById('copyTextBtn');
+    const fontSizeSelector = document.getElementById('fontSizeSelector');
+    const lineHeightSelector = document.getElementById('lineHeightSelector');
+    const admissionsList = document.getElementById('admissionsList');
+    const templatesList = document.getElementById('templatesList');
+    const addToHandoverBtn = document.getElementById('addToHandoverBtn');
+
+    // ========= STATE =========
+    let pdfDoc = null;
+    let anchorsByPage = {};
+    let values = { fontSize: 13, lineHeight: 1.3 };
+    let fileKey = 'Admission';
+    let db = null, firebaseInitialized = false;
+    let docRef = null, currentAdmissionId = null, isTemplateMode = false, isNewTemplate = false;
+    let baseW = 0, baseH = 0;
+    let scale = 1;
+    const DPR = Math.min(window.devicePixelRatio || 1, 2);
+    const canvasCache = new Map(); // Cache for rendered canvases
+
+    // ========= HELPERS =========
+    function showSavedBadge(msg = 'Saved') {
+      saveBadge.textContent = msg;
+      saveBadge.classList.add('visible');
+      clearTimeout(showSavedBadge._t);
+      showSavedBadge._t = setTimeout(() => saveBadge.classList.remove('visible'), 1200);
+    }
+
+    function setEditable(editable) {
+      document.querySelectorAll('.box').forEach(tb => {
+        tb.contentEditable = editable;
+        tb.classList.toggle('disabled', !editable);
+      });
+    }
+
+    function snap(n) { return Math.round(n * 2) / 2; }
+
+    function updateFontSize(fpt) {
+      values.fontSize = parseInt(fpt);
+      document.querySelectorAll('.box').forEach(tb => {
+        tb.style.fontSize = values.fontSize + 'px';
+      });
+      if (docRef) autoSaveValues();
+    }
+
+    function updateLineHeight(lh) {
+      values.lineHeight = parseFloat(lh);
+      document.querySelectorAll('.box').forEach(tb => {
+        tb.style.lineHeight = String(values.lineHeight.toFixed(1));
+      });
+      if (docRef) autoSaveValues();
+    }
+
+    function clearFormDomAndState() {
+      document.querySelectorAll('.box').forEach(tb => {
+        tb.innerHTML = '';
+        if (tb.dataset.name) delete values[tb.dataset.name];
+      });
+    }
+
+    // Debounce helper
+    function debounce(fn, delay) {
+      let timeout;
+      return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn(...args), delay);
+      };
+    }
+
+    // Normalize text for contenteditable
+    function normalizeText(tb) {
+      let html = tb.innerHTML;
+      return html
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<div[^>]*>(.*?)<\/div>/gi, '\n$1')
+        .replace(/<p[^>]*>(.*?)<\/p>/gi, '\n$1')
+        .replace(/<[^>]+>/g, '')
+        .replace(/\u00A0/g, ' ');
+    }
+
+    // Get box width for a text box, accounting for padding and scale
+    function getBoxWidth(tb) {
+      const pageNo = tb.dataset.page;
+      const name = tb.dataset.name;
+      const anchor = (anchorsByPage[pageNo] || []).find(a => a.name === name);
+      const styles = getComputedStyle(tb);
+      const padding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
+      if (anchor) {
+        return snap(anchor.w * baseW * scale) - padding;
+      }
+      return parseFloat(styles.width) - padding;
+    }
+
+    // ========= INITIALIZE FIREBASE =========
+    async function ensureFirebase() {
+      try {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        firebaseInitialized = true;
+        db.enablePersistence().catch(e => console.warn('Offline persistence failed:', e.message));
+        console.log('Firebase initialized successfully');
+      } catch (e) {
+        console.warn('Firebase init failed:', e.message);
+        firebaseInitialized = false;
+        db = null;
+        overlay.classList.add('hidden');
+        overlay.textContent = 'Failed to connect to Firestore';
+      }
+    }
+
+    // ========= PAGE CREATION =========
+    async function createPages() {
+      try {
+        const page1 = await pdfDoc.getPage(1);
+        const v1 = page1.getViewport({ scale: 1 });
+        baseW = Math.round(v1.width);
+        baseH = Math.round(v1.height);
+
+        pagesRoot.innerHTML = '';
+        for (let p = 1; p <= pdfDoc.numPages; p++) {
+          const page = await pdfDoc.getPage(p);
+          const vCSS = page.getViewport({ scale: 1 });
+          const scaleFactor = 3 * DPR; // Higher render scale for sharpness
+          const vHiDPI = page.getViewport({ scale: scaleFactor });
+
+          const sizer = document.createElement('div');
+          sizer.className = 'page-sizer';
+          sizer.style.setProperty('--bw', baseW + 'px');
+          sizer.style.setProperty('--bh', baseH + 'px');
+
+          const wrap = document.createElement('div');
+          wrap.className = 'page';
+          wrap.style.setProperty('--bw', baseW + 'px');
+          wrap.style.setProperty('--bh', baseH + 'px');
+          wrap.style.setProperty('--s', '1');
+
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(vHiDPI.width);
+          canvas.height = Math.round(vHiDPI.height);
+          canvas.style.width = vCSS.width + 'px';
+          canvas.style.height = vCSS.height + 'px';
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+
+          wrap.appendChild(canvas);
+          sizer.appendChild(wrap);
+          pagesRoot.appendChild(sizer);
+
+          await page.render({ canvasContext: ctx, viewport: vHiDPI }).promise;
+          canvasCache.set(p, canvas.toDataURL()); // Cache rendered canvas
+
+          (anchorsByPage[p] || []).forEach(a => spawnBox(wrap, a, p));
+        }
+
+        setScale();
+      } catch (e) {
+        console.error('Failed to create pages:', e.message);
+        overlay.classList.add('hidden');
+        overlay.textContent = 'Failed to load PDF';
+      }
+    }
+
+    // ========= RESIZE HANDLING =========
+    function setScale() {
+      const padX = 16;
+      const avail = Math.max(stage.clientWidth - padX, 280);
+      scale = Math.round(avail / baseW * 100) / 100; // Responsive scaling, no cap
+      document.querySelectorAll('.page-sizer').forEach(sizer => {
+        sizer.style.setProperty('--w', (baseW * scale) + 'px');
+        sizer.style.setProperty('--h', (baseH * scale) + 'px');
+      });
+      document.querySelectorAll('.page').forEach(page => {
+        page.style.setProperty('--s', String(scale));
+      });
+      document.querySelectorAll('.box').forEach(tb => {
+        const pageNo = tb.dataset.page;
+        const name = tb.dataset.name;
+        const anchor = (anchorsByPage[pageNo] || []).find(a => a.name === name);
+        if (anchor) {
+          tb.style.left = snap(anchor.x * baseW) + 'px';
+          tb.style.top = snap(anchor.y * baseH) + 'px';
+          tb.style.width = snap(anchor.w * baseW) + 'px';
+          tb.style.height = snap(anchor.h * baseH) + 'px';
+        }
+      });
+    }
+
+    window.addEventListener('resize', () => { if (pdfDoc) setScale(); });
+    window.addEventListener('orientationchange', () => setTimeout(setScale, 100));
+    if (window.visualViewport) {
+      let t;
+      window.visualViewport.addEventListener('resize', () => {
+        clearTimeout(t);
+        t = setTimeout(setScale, 100);
+      });
+    }
+
+    // ========= OVERLAY BOXES =========
+    function spawnBox(pageWrap, a, pageNo) {
+      const tb = document.createElement('div');
+      tb.className = 'box';
+      tb.dataset.page = String(pageNo);
+      tb.dataset.name = a.name || '';
+
+      tb.style.fontSize = (values.fontSize || a.fpt || 13) + 'px';
+      tb.style.lineHeight = String((values.lineHeight || a.lh || 1.3).toFixed(1));
+      tb.style.maxHeight = snap(a.h * baseH) + 'px';
+
+      const left = snap(a.x * baseW);
+      const top = snap(a.y * baseH);
+      const width = snap(a.w * baseW);
+      const height = snap(a.h * baseH);
+      tb.style.left = left + 'px';
+      tb.style.top = top + 'px';
+      tb.style.width = width + 'px';
+      tb.style.height = height + 'px';
+
+      tb.innerHTML = (values[a.name || ''] || '').replace(/\n/g, '<br>');
+
+      const handleInput = (e) => {
+        const k = tb.dataset.name;
+        if (!k) return;
+        values[k] = normalizeText(tb);
+        if (docRef) autoSaveValues();
+      };
+
+      tb.addEventListener('input', handleInput);
+
+      tb.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && tb.contentEditable === 'true') {
+          e.preventDefault();
+          const sel = window.getSelection();
+          if (sel.rangeCount > 0) {
+            const range = sel.getRangeAt(0);
+            range.deleteContents();
+            const br = document.createElement('br');
+            range.insertNode(br);
+            range.setStartAfter(br);
+            range.setEndAfter(br);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            tb.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }
+      });
+
+      pageWrap.appendChild(tb);
+      return tb;
+    }
+
+    function applyValuesToDom() {
+      document.querySelectorAll('.box').forEach(tb => {
+        const k = tb.dataset.name || '';
+        const next = k ? (values[k] ?? '') : '';
+        const displayText = next;
+        tb.innerHTML = displayText.replace(/\n/g, '<br>');
+        tb.style.fontSize = (values.fontSize ?? 13) + 'px';
+        tb.style.lineHeight = String((values.lineHeight ?? 1.3).toFixed(1));
+      });
+    }
+
+    // ========= LOAD/PRINT/EXPORT =========
+    function wrapTextBlocks(text) { 
+      return text.split('\n').map(line => line.trim() === '' ? '' : line); 
+    }
+    function wrapLineToWidth(text, font, size, maxWidth) {
+      const words = text.split(/\s+/), lines = [], W = t => font.widthOfTextAtSize(t, size);
+      let line = '';
+      for (const w of words) {
+        const t = line ? line + ' ' + w : w;
+        if (W(t) <= maxWidth) {
+          line = t;
+        } else {
+          if (line) lines.push(line);
+          if (W(w) > maxWidth) {
+            let cl = '';
+            for (const c of w) {
+              const t2 = cl + c;
+              if (W(t2) <= maxWidth) {
+                cl = t2;
+              } else {
+                if (cl) lines.push(cl);
+                cl = c;
+              }
+            }
+            if (cl) line = cl;
+            else line = '';
+          } else {
+            line = w;
+          }
+        }
+      }
+      if (line) lines.push(line);
+      return lines;
+    }
+
+    async function buildPdfBlob() {
+      try {
+        const pdfBytes = await fetch(PDF_URL).then(r => r.arrayBuffer());
+        const pdf = await PDFLib.PDFDocument.load(pdfBytes);
+        const font = await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
+
+        for (let p = 1; p <= pdf.getPageCount(); p++) {
+          const page = pdf.getPages()[p - 1];
+          const { width, height } = page.getSize();
+          for (const a of (anchorsByPage[p] || [])) {
+            const name = a.name || '';
+            const text = (values[name] || '').toString();
+            if (!text && text !== '') continue; // Skip if text is undefined/null, but process empty strings
+            const fpt = values.fontSize || a.fpt || 13;
+            const lh = values.lineHeight || a.lh || 1.3;
+            const pad = 2;
+            const boxW = a.w * width - pad * 2;
+            const boxH = a.h * height - pad * 2;
+            const startX = a.x * width + pad;
+            const topY = height - a.y * height - pad;
+            const blocks = wrapTextBlocks(text);
+            let y = topY - fpt;
+            for (const b of blocks) {
+              if (b === '') {
+                // Handle empty line by advancing y position
+                if ((topY - y) <= boxH + fpt * 0.2) {
+                  y -= fpt * lh;
+                }
+                continue;
+              }
+              const lines = wrapLineToWidth(b, font, fpt, boxW);
+              for (const ln of lines) {
+                if ((topY - y) > boxH + fpt * 0.2) break;
+                page.drawText(ln, { x: startX, y, size: fpt, font, color: PDFLib.rgb(0, 0, 0) });
+                y -= fpt * lh;
+              }
+            }
+          }
+        }
+        const out = await pdf.save();
+        return new Blob([out], { type: 'application/pdf' });
+      } catch (e) {
+        throw new Error('Failed to build PDF: ' + e.message);
+      }
+    }
+
+    async function doPrint() {
+      try {
+        overlay.classList.remove('hidden');
+        overlay.textContent = 'Preparing print…';
+        const blob = await buildPdfBlob();
+        const url = URL.createObjectURL(blob);
+        const w = window.open(url, '_blank');
+        if (w) {
+          setTimeout(() => { try { w.focus(); w.print(); } catch {} }, 400);
+        } else {
+          const iframe = document.createElement('iframe');
+          iframe.style.position = 'fixed';
+          iframe.style.right = '0';
+          iframe.style.bottom = '0';
+          iframe.style.width = '0';
+          iframe.style.height = '0';
+          iframe.style.border = '0';
+          iframe.onload = () => setTimeout(() => { try { iframe.contentWindow?.print(); } catch {} }, 150);
+          iframe.src = url;
+          document.body.appendChild(iframe);
+          setTimeout(() => URL.revokeObjectURL(url), 20000);
+        }
+      } catch (e) {
+        alert('Failed to print: ' + e.message);
+      } finally {
+        overlay.classList.add('hidden');
+      }
+    }
+
+    function download(filename, data, type = 'application/pdf') {
+      const blob = new Blob([data], { type });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 8000);
+    }
+
+    async function doExport() {
+      try {
+        overlay.classList.remove('hidden');
+        overlay.textContent = 'Preparing download…';
+        const blob = await buildPdfBlob();
+        download(fileKey + '-filled.pdf', blob);
+      } catch (e) {
+        alert('Export failed: ' + e.message);
+      } finally {
+        overlay.classList.add('hidden');
+      }
+    }
+
+    // ========= STORAGE =========
+    async function saveValuesToFirestore(docRef, displayId, type) {
+      if (!docRef || !firebaseInitialized) return;
+      try {
+        await docRef.set({
+          displayId,
+          type,
+          values: { ...values },
+          fileKey,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } catch (e) {
+        console.warn('Firestore save failed:', e.message);
+        alert('Failed to save to Firestore: ' + e.message);
+      }
+    }
+
+    async function autoSaveValues() {
+      if (!docRef) return;
+      clearTimeout(autoSaveValues._t);
+      autoSaveValues._t = setTimeout(async () => {
+        try {
+          await saveValuesToFirestore(docRef, currentAdmissionId, isTemplateMode ? 'template' : 'admission');
+          showSavedBadge();
+        } catch (e) {
+          alert('Auto-save failed: ' + e.message);
+        }
+      }, 400);
+    }
+
+    async function manualSave() {
+      if (!docRef) return;
+      try {
+        await saveValuesToFirestore(docRef, currentAdmissionId, isTemplateMode ? 'template' : 'admission');
+        if (isTemplateMode && isNewTemplate) {
+          isNewTemplate = false;
+          setEditable(false);
+        }
+        showSavedBadge();
+      } catch (e) {
+        alert('Save failed: ' + e.message);
+      }
+    }
+
+    async function loadValuesFromFirestore(ref) {
+      if (!ref || !firebaseInitialized) return;
+      try {
+        const snap = await ref.get();
+        if (snap.exists) {
+          values = { ...snap.data()?.values, fontSize: snap.data()?.values?.fontSize || 13, lineHeight: snap.data()?.values?.lineHeight || 1.3 };
+          applyValuesToDom();
+          fontSizeSelector.value = values.fontSize;
+          lineHeightSelector.value = values.lineHeight;
+        } else {
+          values = { fontSize: 13, lineHeight: 1.3 };
+        }
+      } catch (e) {
+        console.warn('Failed to load from Firestore:', e.message);
+        alert('Failed to load data: ' + e.message);
+      }
+    }
+
+    // ========= UI: Modals =========
+    function openEntryModal({ title, onCreate, isTemplate = false }) {
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-[2000]';
+      if (isTemplate) {
+        modal.innerHTML = `
+          <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
+            <h2 class="text-lg font-bold mb-4">${title}</h2>
+            <label class="block mb-2 text-sm font-medium">Template Name</label>
+            <input id="nameInput" type="text" class="w-full border border-slate-300 p-2 mb-4 rounded-lg">
+            <button id="okBtn" class="btn btn-primary w-full">Create</button>
+            <button id="cancelBtn" class="btn w-full mt-2">Cancel</button>
+          </div>`;
+      } else {
+        modal.innerHTML = `
+          <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+            <h2 class="text-xl font-bold mb-4">${title}</h2>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium">Name *</label>
+                <input id="modal-name" type="text" class="w-full border border-slate-300 p-2 rounded-lg" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium">ID *</label>
+                <input id="modal-id" type="text" class="w-full border border-slate-300 p-2 rounded-lg" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium">Date of Admission *</label>
+                <input id="modal-doa" type="date" class="w-full border border-slate-300 p-2 rounded-lg" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium">Age (e.g., 5y, 3m) *</label>
+                <input id="modal-age" type="text" class="w-full border border-slate-300 p-2 rounded-lg" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium">Sex *</label>
+                <select id="modal-sex" class="w-full border border-slate-300 p-2 rounded-lg" required>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium">Weight (kg) *</label>
+                <input id="modal-weight" type="text" class="w-full border border-slate-300 p-2 rounded-lg" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium">Medications</label>
+                <textarea id="modal-medications" class="w-full border border-slate-300 p-2 rounded-lg" rows="3"></textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium">Issues</label>
+                <input id="modal-issues" type="text" class="w-full border border-slate-300 p-2 rounded-lg">
+              </div>
+              <div>
+                <label class="block text-sm font-medium">Ward *</label>
+                <select id="modal-ward" class="w-full border border-slate-300 p-2 rounded-lg" required>
+                  <option value="PW">PW</option>
+                  <option value="GW">GW</option>
+                  <option value="SW">SW</option>
+                  <option value="PVT">PVT</option>
+                  <option value="ICU">ICU</option>
+                  <option value="NICU">NICU</option>
+                  <option value="ER">ER</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium">Shift</label>
+                <select id="modal-shift" class="w-full border border-slate-300 p-2 rounded-lg">
+                  <option value="Morning">Morning</option>
+                  <option value="Evening">Evening</option>
+                  <option value="Night">Night</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium">Bed *</label>
+                <input id="modal-bed" type="text" class="w-full border border-slate-300 p-2 rounded-lg" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium">Date of Birth</label>
+                <input id="modal-dob" type="date" class="w-full border border-slate-300 p-2 rounded-lg">
+              </div>
+              <div>
+                <label class="block text-sm font-medium">Time of Birth</label>
+                <input id="modal-dot" type="time" class="w-full border border-slate-300 p-2 rounded-lg">
+              </div>
+              <div>
+                <label class="flex items-center">
+                  <input id="modal-isNew" type="checkbox" class="mr-2" checked>
+                  <span class="text-sm font-medium">New Patient</span>
+                </label>
+              </div>
+              <div class="flex justify-end space-x-2">
+                <button id="cancelBtn" class="btn w-full mt-2">Cancel</button>
+                <button id="okBtn" class="btn btn-primary w-full">Create</button>
+              </div>
+            </div>
+          </div>`;
+      }
+      document.body.appendChild(modal);
+
+      if (isTemplate) {
+        modal.querySelector('#cancelBtn').onclick = () => modal.remove();
+        modal.querySelector('#okBtn').onclick = async () => {
+          const name = modal.querySelector('#nameInput').value.trim();
+          if (!name) return alert('Template name is required.');
+          await onCreate({ name });
+          modal.remove();
+        };
+      } else {
+        modal.querySelector('#cancelBtn').onclick = () => modal.remove();
+        modal.querySelector('#okBtn').onclick = async () => {
+          const name = modal.querySelector('#modal-name').value.trim();
+          const id = modal.querySelector('#modal-id').value.trim();
+          const doa = modal.querySelector('#modal-doa').value;
+          const age = modal.querySelector('#modal-age').value.trim();
+          const sex = modal.querySelector('#modal-sex').value;
+          const weight = modal.querySelector('#modal-weight').value.trim();
+          const medications = modal.querySelector('#modal-medications').value.trim();
+          const issues = modal.querySelector('#modal-issues').value.trim();
+          const ward = modal.querySelector('#modal-ward').value;
+          const shift = modal.querySelector('#modal-shift').value;
+          const bed = modal.querySelector('#modal-bed').value.trim();
+          const dob = modal.querySelector('#modal-dob').value;
+          const dot = modal.querySelector('#modal-dot').value;
+          const isNew = modal.querySelector('#modal-isNew').checked;
+
+          if (!name || !id || !doa || !age || !sex || !weight || !ward || !bed) {
+            return alert('Please fill all required fields.');
+          }
+
+          const modalData = { name, id, doa, age, sex, weight, medications, issues, ward, shift, bed, dob, dot, isNew };
+          await onCreate(modalData);
+          modal.remove();
+        };
+      }
+    }
+
+    // ========= UI: Lists =========
+    async function loadAdmissionsList() {
+      if (!firebaseInitialized || !db) {
+        admissionsList.innerHTML = '<p class="text-slate-500">No Firestore connection. Please try again later.</p>';
+        return;
+      }
+      try {
+        const snap = await db.collection('admissions').where('type', '==', 'admission').get();
+        console.log('Admissions query executed, docs:', snap.size);
+        if (snap.empty) {
+          admissionsList.innerHTML = '<p class="text-slate-500">No admissions yet.</p>';
+          return;
+        }
+        admissionsList.innerHTML = '';
+        const docs = snap.docs.sort((a, b) => (b.data().updatedAt?.toMillis() || 0) - (a.data().updatedAt?.toMillis() || 0));
+        docs.forEach(doc => {
+          const data = doc.data();
+          const card = document.createElement('div');
+          card.className = 'card bg-white p-4 rounded-lg shadow border border-slate-200';
+          card.dataset.docId = doc.id;
+          card.innerHTML = `
+            <h3 class="font-semibold">${data.displayId || doc.id}</h3>
+            <p class="text-xs text-slate-500">Updated: ${data.updatedAt?.toDate().toLocaleString() || 'N/A'}</p>
+            <div class="mt-2 flex gap-2">
+              <button class="btn btn-primary load-btn">Load</button>
+              <button class="btn copy-btn">Load As Copy</button>
+              <button class="btn delete-btn">Delete</button>
+            </div>`;
+          card.querySelector('.load-btn').onclick = async () => {
+            values = { ...(data.values || {}), fontSize: data.values?.fontSize || 13, lineHeight: data.values?.lineHeight || 1.3 };
+            applyValuesToDom();
+            fontSizeSelector.value = values.fontSize;
+            lineHeightSelector.value = values.lineHeight;
+            isTemplateMode = false;
+            currentAdmissionId = doc.id;
+            isNewTemplate = false;
+            setEditable(true);
+            viewOverlay.classList.add('hidden');
+            docRef = db.collection('admissions').doc(doc.id);
+            await loadValuesFromFirestore(docRef);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          };
+          card.querySelector('.copy-btn').onclick = () => {
+            openEntryModal({
+              title: 'New Admission (Copy)',
+              onCreate: async ({ name, id, doa, age, sex, weight, medications, issues, ward, shift, bed, dob, dot, isNew }) => {
+                const now = new Date();
+                const stamp = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                const displayId = `${age}/${sex}, ${name || 'Untitled'} (${stamp})`;
+                const docId = displayId.replace(/\//g, '-').replace(/[\(\)]/g, '');
+                values = { ...(data.values || {}), fontSize: data.values?.fontSize || 13, lineHeight: data.values?.lineHeight || 1.3, modalData: { name, id, doa, age, sex, weight, medications, issues, ward, shift, bed, dob, dot, isNew } };
+                currentAdmissionId = docId;
+                isTemplateMode = false;
+                isNewTemplate = false;
+                setEditable(true);
+                fontSizeSelector.value = values.fontSize;
+                lineHeightSelector.value = values.lineHeight;
+                if (firebaseInitialized) {
+                  docRef = db.collection('admissions').doc(docId);
+                  await saveValuesToFirestore(docRef, displayId, 'admission');
+                }
+                applyValuesToDom();
+                viewOverlay.classList.add('hidden');
+                showSavedBadge('Admission Copy Created');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            });
+          };
+          card.querySelector('.delete-btn').onclick = async () => {
+            if (doc.id === currentAdmissionId) return alert('Load another admission first.');
+            try {
+              await db.collection('admissions').doc(doc.id).delete();
+              showSavedBadge('Admission Deleted');
+            } catch (e) {
+              alert('Failed to delete admission: ' + e.message);
+            }
+          };
+          admissionsList.appendChild(card);
+        });
+        console.log('Admissions list loaded:', docs.length, 'documents');
+      } catch (e) {
+        console.warn('Failed to load admissions:', e.message, e);
+        admissionsList.innerHTML = '<p class="text-slate-500">Error loading admissions. Please try again.</p>';
+      }
+    }
+
+    const debouncedLoadAdmissionsList = debounce(loadAdmissionsList, 100);
+
+    async function loadTemplatesList() {
+      if (!firebaseInitialized || !db) {
+        templatesList.innerHTML = '<p class="text-slate-500">No Firestore connection. Please try again later.</p>';
+        return;
+      }
+      try {
+        const snap = await db.collection('admissions').where('type', '==', 'template').get();
+        console.log('Templates query executed, docs:', snap.size);
+        if (snap.empty) {
+          templatesList.innerHTML = '<p class="text-slate-500">No templates yet.</p>';
+          return;
+        }
+        templatesList.innerHTML = '';
+        const docs = snap.docs.sort((a, b) => (b.data().updatedAt?.toMillis() || 0) - (a.data().updatedAt?.toMillis() || 0));
+        docs.forEach(doc => {
+          const data = doc.data();
+          const card = document.createElement('div');
+          card.className = 'card bg-white p-4 rounded-lg shadow border border-slate-200';
+          card.dataset.docId = doc.id;
+          card.innerHTML = `
+            <h3 class="font-semibold">${data.displayId || doc.id}</h3>
+            <p class="text-xs text-slate-500">Updated: ${data.updatedAt?.toDate().toLocaleString() || 'N/A'}</p>
+            <div class="mt-2 flex gap-2">
+              <button class="btn btn-primary load-btn">Use Template</button>
+              <button class="btn view-btn">View</button>
+              <button class="btn delete-btn">Delete</button>
+            </div>`;
+          card.querySelector('.load-btn').onclick = () => {
+            openEntryModal({
+              title: 'New Admission (From Template)',
+              onCreate: async ({ name, id, doa, age, sex, weight, medications, issues, ward, shift, bed, dob, dot, isNew }) => {
+                const now = new Date();
+                const stamp = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                const displayId = `${age}/${sex}, ${name || 'Untitled'} (${stamp})`;
+                const docId = displayId.replace(/\//g, '-').replace(/[\(\)]/g, '');
+                values = { ...(data.values || {}), fontSize: data.values?.fontSize || 13, lineHeight: data.values?.lineHeight || 1.3, modalData: { name, id, doa, age, sex, weight, medications, issues, ward, shift, bed, dob, dot, isNew } };
+                currentAdmissionId = docId;
+                isTemplateMode = false;
+                isNewTemplate = false;
+                setEditable(true);
+                fontSizeSelector.value = values.fontSize;
+                lineHeightSelector.value = values.lineHeight;
+                if (firebaseInitialized) {
+                  docRef = db.collection('admissions').doc(docId);
+                  await saveValuesToFirestore(docRef, displayId, 'admission');
+                }
+                applyValuesToDom();
+                viewOverlay.classList.add('hidden');
+                showSavedBadge('Admission Created');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            });
+          };
+          card.querySelector('.view-btn').onclick = async () => {
+            values = { ...(data.values || {}), fontSize: data.values?.fontSize || 13, lineHeight: data.values?.lineHeight || 1.3 };
+            currentAdmissionId = doc.id;
+            isTemplateMode = true;
+            isNewTemplate = false;
+            setEditable(false);
+            fontSizeSelector.value = values.fontSize;
+            lineHeightSelector.value = values.lineHeight;
+            docRef = db.collection('admissions').doc(doc.id);
+            await loadValuesFromFirestore(docRef);
+            viewOverlay.classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          };
+          card.querySelector('.delete-btn').onclick = async () => {
+            if (doc.id === currentAdmissionId && isTemplateMode) return alert('Load another template/admission first.');
+            try {
+              await db.collection('admissions').doc(doc.id).delete();
+              showSavedBadge('Template Deleted');
+            } catch (e) {
+              alert('Failed to delete template: ' + e.message);
+            }
+          };
+          templatesList.appendChild(card);
+        });
+        console.log('Templates list loaded:', docs.length, 'documents');
+      } catch (e) {
+        console.warn('Failed to load templates:', e.message, e);
+        templatesList.innerHTML = '<p class="text-slate-500">Error loading templates. Please try again.</p>';
+      }
+    }
+
+    const debouncedLoadTemplatesList = debounce(loadTemplatesList, 100);
+
+    function copyFormText() {
+      const order = ['complains', 'hopi', 'pasthx', 'personalhx', 'fhx', 'obs', 'ge', 'cvs', 'rs', 'pa', 'pelvis', 'cns', 'le', 'txhx', 'provdx', 'dx', 'management', 'management2'];
+      const text = order.map(k => (values[k] || '').toString().trim()).filter(Boolean).join('\n');
+      if (!text) return alert('No text to copy.');
+      navigator.clipboard?.writeText(text).then(() => showSavedBadge('Text Copied')).catch(e => alert('Copy failed: ' + e.message));
+    }
+
+    // ========= REAL-TIME LISTENERS =========
+    function setupRealtimeListeners() {
+      if (!firebaseInitialized || !db) return;
+
+      db.collection('admissions')
+        .where('type', '==', 'admission')
+        .onSnapshot(snapshot => {
+          console.log('Admissions snapshot triggered, changes:', snapshot.docChanges().length);
+          snapshot.docChanges().forEach(change => {
+            console.log(`Change detected: ${change.type}, doc: ${change.doc.id}`);
+            if (change.type === 'added' or 'modified') {
+              const doc = change.doc;
+              const data = doc.data();
+              const existingCard = admissionsList.querySelector(`[data-doc-id="${doc.id}"]`);
+              if (existingCard) existingCard.remove();
+              const card = document.createElement('div');
+              card.className = 'card bg-white p-4 rounded-lg shadow border border-slate-200';
+              card.dataset.docId = doc.id;
+              card.innerHTML = `
+                <h3 class="font-semibold">${data.displayId || doc.id}</h3>
+                <p class="text-xs text-slate-500">Updated: ${data.updatedAt?.toDate().toLocaleString() || 'N/A'}</p>
+                <div class="mt-2 flex gap-2">
+                  <button class="btn btn-primary load-btn">Load</button>
+                  <button class="btn copy-btn">Load As Copy</button>
+                  <button class="btn delete-btn">Delete</button>
+                </div>`;
+              card.querySelector('.load-btn').onclick = async () => {
+                values = { ...(data.values || {}), fontSize: data.values?.fontSize || 13, lineHeight: data.values?.lineHeight || 1.3 };
+                applyValuesToDom();
+                fontSizeSelector.value = values.fontSize;
+                lineHeightSelector.value = values.lineHeight;
+                isTemplateMode = false;
+                currentAdmissionId = doc.id;
+                isNewTemplate = false;
+                setEditable(true);
+                viewOverlay.classList.add('hidden');
+                docRef = db.collection('admissions').doc(doc.id);
+                await loadValuesFromFirestore(docRef);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              };
+              card.querySelector('.copy-btn').onclick = () => {
+                openEntryModal({
+                  title: 'New Admission (Copy)',
+                  onCreate: async ({ name, id, doa, age, sex, weight, medications, issues, ward, shift, bed, dob, dot, isNew }) => {
+                    const now = new Date();
+                    const stamp = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                    const displayId = `${age}/${sex}, ${name || 'Untitled'} (${stamp})`;
+                    const docId = displayId.replace(/\//g, '-').replace(/[\(\)]/g, '');
+                    values = { ...(data.values || {}), fontSize: data.values?.fontSize || 13, lineHeight: data.values?.lineHeight || 1.3, modalData: { name, id, doa, age, sex, weight, medications, issues, ward, shift, bed, dob, dot, isNew } };
+                    currentAdmissionId = docId;
+                    isTemplateMode = false;
+                    isNewTemplate = false;
+                    setEditable(true);
+                    fontSizeSelector.value = values.fontSize;
+                    lineHeightSelector.value = values.lineHeight;
+                    if (firebaseInitialized) {
+                      docRef = db.collection('admissions').doc(docId);
+                      await saveValuesToFirestore(docRef, displayId, 'admission');
+                    }
+                    applyValuesToDom();
+                    viewOverlay.classList.add('hidden');
+                    showSavedBadge('Admission Copy Created');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }
+                });
+              };
+              card.querySelector('.delete-btn').onclick = async () => {
+                if (doc.id === currentAdmissionId) return alert('Load another admission first.');
+                try {
+                  await db.collection('admissions').doc(doc.id).delete();
+                  showSavedBadge('Admission Deleted');
+                } catch (e) {
+                  alert('Failed to delete admission: ' + e.message);
+                }
+              };
+              admissionsList.appendChild(card);
+            } else if (change.type === 'removed') {
+              const card = admissionsList.querySelector(`[data-doc-id="${change.doc.id}"]`);
+              if (card) card.remove();
+            }
+          });
+          if (snapshot.empty) {
+            admissionsList.innerHTML = '<p class="text-slate-500">No admissions yet.</p>';
+          }
+          console.log('Admissions UI updated, total cards:', admissionsList.children.length);
+        }, err => {
+          console.warn('Admissions listener error:', err.message, err);
+          admissionsList.innerHTML = '<p class="text-slate-500">Error loading admissions. Please try again.</p>';
+        });
+
+      db.collection('admissions')
+        .where('type', '==', 'template')
+        .onSnapshot(snapshot => {
+          console.log('Templates snapshot triggered, changes:', snapshot.docChanges().length);
+          snapshot.docChanges().forEach(change => {
+            console.log(`Change detected: ${change.type}, doc: ${change.doc.id}`);
+            if (change.type === 'added' or 'modified') {
+              const doc = change.doc;
+              const data = doc.data();
+              const existingCard = templatesList.querySelector(`[data-doc-id="${doc.id}"]`);
+              if (existingCard) existingCard.remove();
+              const card = document.createElement('div');
+              card.className = 'card bg-white p-4 rounded-lg shadow border border-slate-200';
+              card.dataset.docId = doc.id;
+              card.innerHTML = `
+                <h3 class="font-semibold">${data.displayId || doc.id}</h3>
+                <p class="text-xs text-slate-500">Updated: ${data.updatedAt?.toDate().toLocaleString() || 'N/A'}</p>
+                <div class="mt-2 flex gap-2">
+                  <button class="btn btn-primary load-btn">Use Template</button>
+                  <button class="btn view-btn">View</button>
+                  <button class="btn delete-btn">Delete</button>
+                </div>`;
+              card.querySelector('.load-btn').onclick = () => {
+                openEntryModal({
+                  title: 'New Admission (From Template)',
+                  onCreate: async ({ name, id, doa, age, sex, weight, medications, issues, ward, shift, bed, dob, dot, isNew }) => {
+                    const now = new Date();
+                    const stamp = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                    const displayId = `${age}/${sex}, ${name || 'Untitled'} (${stamp})`;
+                    const docId = displayId.replace(/\//g, '-').replace(/[\(\)]/g, '');
+                    values = { ...(data.values || {}), fontSize: data.values?.fontSize || 13, lineHeight: data.values?.lineHeight || 1.3, modalData: { name, id, doa, age, sex, weight, medications, issues, ward, shift, bed, dob, dot, isNew } };
+                    currentAdmissionId = docId;
+                    isTemplateMode = false;
+                    isNewTemplate = false;
+                    setEditable(true);
+                    fontSizeSelector.value = values.fontSize;
+                    lineHeightSelector.value = values.lineHeight;
+                    if (firebaseInitialized) {
+                      docRef = db.collection('admissions').doc(docId);
+                      await saveValuesToFirestore(docRef, displayId, 'admission');
+                    }
+                    applyValuesToDom();
+                    viewOverlay.classList.add('hidden');
+                    showSavedBadge('Admission Created');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }
+                });
+              };
+              card.querySelector('.view-btn').onclick = async () => {
+                values = { ...(data.values || {}), fontSize: data.values?.fontSize || 13, lineHeight: data.values?.lineHeight || 1.3 };
+                currentAdmissionId = doc.id;
+                isTemplateMode = true;
+                isNewTemplate = false;
+                setEditable(false);
+                fontSizeSelector.value = values.fontSize;
+                lineHeightSelector.value = values.lineHeight;
+                docRef = db.collection('admissions').doc(doc.id);
+                await loadValuesFromFirestore(docRef);
+                viewOverlay.classList.remove('hidden');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              };
+              card.querySelector('.delete-btn').onclick = async () => {
+                if (doc.id === currentAdmissionId && isTemplateMode) return alert('Load another template/admission first.');
+                try {
+                  await db.collection('admissions').doc(doc.id).delete();
+                  showSavedBadge('Template Deleted');
+                } catch (e) {
+                  alert('Failed to delete template: ' + e.message);
+                }
+              };
+              templatesList.appendChild(card);
+            } else if (change.type === 'removed') {
+              const card = templatesList.querySelector(`[data-doc-id="${change.doc.id}"]`);
+              if (card) card.remove();
+            }
+          });
+          if (snapshot.empty) {
+            templatesList.innerHTML = '<p class="text-slate-500">No templates yet.</p>';
+          }
+          console.log('Templates UI updated, total cards:', templatesList.children.length);
+        }, err => {
+          console.warn('Templates listener error:', err.message, err);
+          templatesList.innerHTML = '<p class="text-slate-500">Error loading templates. Please try again.</p>';
+        });
+    }
+
+    // ========= INIT =========
+    async function init() {
+      overlay.classList.remove('hidden');
+      overlay.textContent = 'Loading PDF…';
+      await ensureFirebase();
+      setupRealtimeListeners();
+      try {
+        const a = await fetch(ANCHORS_URL, { cache: 'no-store' });
+        anchorsByPage = a.ok ? (await a.json()).anchorsByPage || await a.json() : {};
+        console.log('Anchors loaded');
+      } catch (e) {
+        console.warn('Failed to load anchors:', e.message);
+        overlay.classList.add('hidden');
+        overlay.textContent = 'Failed to load anchors';
+        return;
+      }
+
+      try {
+        pdfDoc = await pdfjsLib.getDocument(PDF_URL).promise;
+        console.log('PDF loaded');
+        await createPages();
+        console.log('Pages created');
+        setEditable(false);
+        await debouncedLoadAdmissionsList();
+        console.log('Admissions loaded');
+        await debouncedLoadTemplatesList();
+        console.log('Templates loaded');
+      } catch (e) {
+        console.error('Failed to initialize PDF:', e.message);
+        overlay.classList.add('hidden');
+        overlay.textContent = 'Failed to load PDF';
+        return;
+      }
+
+      fontSizeSelector.addEventListener('change', (e) => {
+        updateFontSize(e.target.value);
+      });
+      lineHeightSelector.addEventListener('change', (e) => {
+        updateLineHeight(e.target.value);
+      });
+
+      closeViewBtn.addEventListener('click', () => {
+        clearFormDomAndState();
+        applyValuesToDom();
+        setEditable(false);
+        viewOverlay.classList.add('hidden');
+        isTemplateMode = false;
+        currentAdmissionId = null;
+        docRef = null;
+      });
+
+      overlay.classList.add('hidden');
+      console.log('Init complete');
+    }
+
+    // ========= BUTTONS =========
+    newAdmissionBtn.onclick = () => {
+      openEntryModal({
+        title: 'New Admission',
+        onCreate: async (modalData) => {
+          const now = new Date();
+          const stamp = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+          const displayId = `${modalData.age}/${modalData.sex}, ${modalData.name || 'Untitled'} (${stamp})`;
+          const docId = displayId.replace(/\//g, '-').replace(/[\(\)]/g, '');
+          currentAdmissionId = docId;
+          isTemplateMode = false;
+          isNewTemplate = false;
+          values = { fontSize: 13, lineHeight: 1.3, modalData };
+          if (firebaseInitialized) {
+            docRef = db.collection('admissions').doc(docId);
+            await saveValuesToFirestore(docRef, displayId, 'admission');
+          }
+          clearFormDomAndState();
+          applyValuesToDom();
+          setEditable(true);
+          fontSizeSelector.value = values.fontSize;
+          lineHeightSelector.value = values.lineHeight;
+          addToHandoverBtn.style.display = 'block';
+          viewOverlay.classList.add('hidden');
+          showSavedBadge('Admission Created');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      });
+    };
+
+    newTemplateBtn.onclick = () => {
+      openEntryModal({
+        title: 'New Template',
+        isTemplate: true,
+        onCreate: async ({ name }) => {
+          const now = new Date();
+          const stamp = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+          const displayId = `${name} (${stamp})`;
+          const docId = displayId.replace(/\//g, '-').replace(/[\(\)]/g, '');
+          currentAdmissionId = docId;
+          isTemplateMode = true;
+          isNewTemplate = true;
+          values = { fontSize: 13, lineHeight: 1.3 };
+          clearFormDomAndState();
+          applyValuesToDom();
+          setEditable(true);
+          fontSizeSelector.value = values.fontSize;
+          lineHeightSelector.value = values.lineHeight;
+          if (firebaseInitialized) {
+            docRef = db.collection('admissions').doc(docId);
+            await saveValuesToFirestore(docRef, displayId, 'template');
+          }
+          viewOverlay.classList.add('hidden');
+          showSavedBadge('Template Created');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      });
+    };
+
+    saveBtn.onclick = () => manualSave();
+    exportBtn.onclick = () => doExport();
+    printBtn.onclick = () => doPrint();
+    copyTextBtn.onclick = () => copyFormText();
+
+    // Add to Handover button logic
+    addToHandoverBtn.onclick = () => {
+      if (!values.modalData) {
+        alert('Please create a new admission first.');
+        return;
+      }
+      const modalData = values.modalData;
+      const pdfFields = ['complains', 'pasthx', 'personalhx', 'fhx', 'obs', 'ge', 'cvs', 'rs', 'pa', 'pelvis', 'cns', 'le', 'txhx', 'hopi'];
+      const hopiParts = pdfFields
+        .filter(key => values[key] && key !== 'hopi')
+        .map(key => `${key.charAt(0).toUpperCase() + key.slice(1)}: ${values[key]}`)
+        .concat(values.hopi ? [`HOPI: ${values.hopi}`] : []);
+      const hopi = hopiParts.join('\n');
+      const plan = [values.management, values.management2].filter(Boolean).join('\n');
+      const diagnosis = [values.provdx, values.dx].filter(Boolean).join('\n');
+      const patient = {
+        name: modalData.name || '',
+        id: modalData.id || '',
+        doa: modalData.doa || '',
+        age: modalData.age || '',
+        sex: modalData.sex || '',
+        weight: modalData.weight || '',
+        medications: modalData.medications || '',
+        issues: modalData.issues || '',
+        ward: modalData.ward || '',
+        shift: modalData.shift || 'Morning',
+        bed: modalData.bed || '',
+        dob: modalData.dob || '',
+        dot: modalData.dot || '',
+        isNew: modalData.isNew !== false,
+        diagnosis: diagnosis || '',
+        plan: plan || '',
+        hopi: hopi || '',
+        timestamp: Date.now(),
+        logs: '',
+        lastLoggedPlan: '',
+        isAutoAge: !!(modalData.dob && modalData.dot)
+      };
+      localStorage.setItem('preFillPatient', JSON.stringify(patient));
+      showSavedBadge('Redirecting to Handover');
+      setTimeout(() => {
+        window.location.href = '../';
+      }, 1200);
+    };
+
+    // Lock templates on page refresh
+    window.addEventListener('load', () => {
+      if (isTemplateMode && !isNewTemplate) {
+        setEditable(false);
+      }
+    });
+
+    // GO
+    init();
+  </script>
+</body>
+</html>
