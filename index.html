@@ -469,33 +469,73 @@
     <button class="theme-toggle" onclick="toggleDarkMode()" aria-label="Toggle theme"></button>
   </div>
   <div class="top-panel">
-    <div id="handoverHeader" class="panel-card">
-      <strong>Date:</strong> <span id="handoverDate">2025-09-15</span>
-      <table>
-        <tbody>
-          <tr><th></th><th>Morning</th><th>Evening</th><th>Night</th></tr>
-          <tr>
-            <td>Admissions</td>
-            <td><input type="number" id="adM" value="0" min="0" oninput="recalcSummary()"></td>
-            <td><input type="number" id="adE" value="0" min="0" oninput="recalcSummary()"></td>
-            <td><input type="number" id="adN" value="0" min="0" oninput="recalcSummary()"></td>
-          </tr>
-          <tr>
-            <td>Discharges</td>
-            <td><input type="number" id="disM" value="0" min="0" oninput="recalcSummary()"></td>
-            <td><input type="number" id="disE" value="0" min="0" oninput="recalcSummary()"></td>
-            <td><input type="number" id="disN" value="0" min="0" oninput="recalcSummary()"></td>
-          </tr>
-          <tr><td>Total Admissions</td><td colspan="3" id="totalAd">0</td></tr>
-          <tr><td>Total Discharges</td><td colspan="3" id="totalDis">0</td></tr>
-          <tr><td>Total Patients</td><td colspan="3" id="totalCount">0</td></tr>
-          <tr>
-            <td>By ward</td>
-            <td colspan="3" id="wardBreakdown">PW (0), GW (0), SW (0), PVT (0), ICU (0), NICU (0), ER (0)</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+<div id="handoverHeader" class="panel-card">
+  <strong>Date:</strong> <span id="handoverDate">2025-09-15</span>
+  <table>
+    <tbody>
+      <tr><th></th><th>Morning</th><th>Evening</th><th>Night</th></tr>
+      
+      <!-- Admissions -->
+      <tr>
+        <td>Admissions</td>
+        <td><input type="number" id="adM" value="0" min="0" oninput="recalcSummary()"></td>
+        <td><input type="number" id="adE" value="0" min="0" oninput="recalcSummary()"></td>
+        <td><input type="number" id="adN" value="0" min="0" oninput="recalcSummary()"></td>
+      </tr>
+      
+      <!-- Discharges -->
+      <tr>
+        <td>Discharges</td>
+        <td><input type="number" id="disM" value="0" min="0" oninput="recalcSummary()"></td>
+        <td><input type="number" id="disE" value="0" min="0" oninput="recalcSummary()"></td>
+        <td><input type="number" id="disN" value="0" min="0" oninput="recalcSummary()"></td>
+      </tr>
+
+      <!-- NEW ROWS -->
+      <tr>
+        <td>Transfers In</td>
+        <td><input type="number" id="transInM" value="0" min="0" oninput="recalcSummary()"></td>
+        <td><input type="number" id="transInE" value="0" min="0" oninput="recalcSummary()"></td>
+        <td><input type="number" id="transInN" value="0" min="0" oninput="recalcSummary()"></td>
+      </tr>
+      <tr>
+        <td>Transfers Out</td>
+        <td><input type="number" id="transOutM" value="0" min="0" oninput="recalcSummary()"></td>
+        <td><input type="number" id="transOutE" value="0" min="0" oninput="recalcSummary()"></td>
+        <td><input type="number" id="transOutN" value="0" min="0" oninput="recalcSummary()"></td>
+      </tr>
+      <tr>
+        <td>Deaths</td>
+        <td><input type="number" id="deathM" value="0" min="0" oninput="recalcSummary()"></td>
+        <td><input type="number" id="deathE" value="0" min="0" oninput="recalcSummary()"></td>
+        <td><input type="number" id="deathN" value="0" min="0" oninput="recalcSummary()"></td>
+      </tr>
+      <tr>
+        <td>Shift Outs</td>
+        <td><input type="number" id="shiftOutM" value="0" min="0" oninput="recalcSummary()"></td>
+        <td><input type="number" id="shiftOutE" value="0" min="0" oninput="recalcSummary()"></td>
+        <td><input type="number" id="shiftOutN" value="0" min="0" oninput="recalcSummary()"></td>
+      </tr>
+
+      <!-- Summary Rows -->
+      <tr><td><strong>Total Admissions</strong></td><td colspan="3" id="totalAd">0</td></tr>
+      <tr><td><strong>Total Discharges</strong></td><td colspan="3" id="totalDis">0</td></tr>
+      
+      <!-- New Summary Rows -->
+      <tr><td><strong>Total Transfers In</strong></td><td colspan="3" id="totalTransIn">0</td></tr>
+      <tr><td><strong>Total Transfers Out</strong></td><td colspan="3" id="totalTransOut">0</td></tr>
+      <tr><td><strong>Total Deaths</strong></td><td colspan="3" id="totalDeaths">0</td></tr>
+      <tr><td><strong>Total Shift Outs</strong></td><td colspan="3" id="totalShiftOut">0</td></tr>
+      
+      <tr><td><strong>Total Patients</strong></td><td colspan="3" id="totalCount">0</td></tr>
+      
+      <tr>
+        <td>By ward</td>
+        <td colspan="3" id="wardBreakdown">PW (0), GW (0), SW (0), PVT (0), ICU (0), NICU (0), ER (0)</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
     <div id="notesCard" class="panel-card">
       <strong>Notes/Pending work</strong>
       <textarea id="notesText" placeholder="Type pending tasks, callbacks, follow-ups..."></textarea>
@@ -1163,18 +1203,54 @@
       });
     }
     function recalcSummary() {
-      const adM = +document.getElementById('adM').value || 0;
-      const adE = +document.getElementById('adE').value || 0;
-      const adN = +document.getElementById('adN').value || 0;
-      const disM = +document.getElementById('disM').value || 0;
-      const disE = +document.getElementById('disE').value || 0;
-      const disN = +document.getElementById('disN').value || 0;
-      document.getElementById('totalAd').innerText = adM + adE + adN;
-      document.getElementById('totalDis').innerText = disM + disE + disN;
-      const data = { adM, adE, adN, disM, disE, disN, date: new Date().toISOString().split("T")[0] };
-      localStorage.setItem('summary', JSON.stringify(data));
-      db.collection('summaries').doc('current').set(data);
-    }
+  // Admissions
+  const adM = +document.getElementById('adM').value || 0;
+  const adE = +document.getElementById('adE').value || 0;
+  const adN = +document.getElementById('adN').value || 0;
+
+  // Discharges
+  const disM = +document.getElementById('disM').value || 0;
+  const disE = +document.getElementById('disE').value || 0;
+  const disN = +document.getElementById('disN').value || 0;
+
+  // New fields
+  const transInM = +document.getElementById('transInM').value || 0;
+  const transInE = +document.getElementById('transInE').value || 0;
+  const transInN = +document.getElementById('transInN').value || 0;
+
+  const transOutM = +document.getElementById('transOutM').value || 0;
+  const transOutE = +document.getElementById('transOutE').value || 0;
+  const transOutN = +document.getElementById('transOutN').value || 0;
+
+  const deathM = +document.getElementById('deathM').value || 0;
+  const deathE = +document.getElementById('deathE').value || 0;
+  const deathN = +document.getElementById('deathN').value || 0;
+
+  const shiftOutM = +document.getElementById('shiftOutM').value || 0;
+  const shiftOutE = +document.getElementById('shiftOutE').value || 0;
+  const shiftOutN = +document.getElementById('shiftOutN').value || 0;
+
+  // Calculate totals
+  document.getElementById('totalAd').innerText = adM + adE + adN;
+  document.getElementById('totalDis').innerText = disM + disE + disN;
+  document.getElementById('totalTransIn').innerText = transInM + transInE + transInN;
+  document.getElementById('totalTransOut').innerText = transOutM + transOutE + transOutN;
+  document.getElementById('totalDeaths').innerText = deathM + deathE + deathN;
+  document.getElementById('totalShiftOut').innerText = shiftOutM + shiftOutE + shiftOutN;
+
+  const data = { 
+    adM, adE, adN, 
+    disM, disE, disN,
+    transInM, transInE, transInN,
+    transOutM, transOutE, transOutN,
+    deathM, deathE, deathN,
+    shiftOutM, shiftOutE, shiftOutN,
+    date: new Date().toISOString().split("T")[0] 
+  };
+
+  localStorage.setItem('summary', JSON.stringify(data));
+  db.collection('summaries').doc('current').set(data);
+}
     function restoreSummary() {
       const saved = localStorage.getItem('summary');
       if (saved) {
@@ -1197,6 +1273,22 @@
           document.getElementById('disN').value = data.disN;
           recalcSummary();
         }
+        // Restore new fields
+if (data.transInM !== undefined) document.getElementById('transInM').value = data.transInM;
+if (data.transInE !== undefined) document.getElementById('transInE').value = data.transInE;
+if (data.transInN !== undefined) document.getElementById('transInN').value = data.transInN;
+
+if (data.transOutM !== undefined) document.getElementById('transOutM').value = data.transOutM;
+if (data.transOutE !== undefined) document.getElementById('transOutE').value = data.transOutE;
+if (data.transOutN !== undefined) document.getElementById('transOutN').value = data.transOutN;
+
+if (data.deathM !== undefined) document.getElementById('deathM').value = data.deathM;
+if (data.deathE !== undefined) document.getElementById('deathE').value = data.deathE;
+if (data.deathN !== undefined) document.getElementById('deathN').value = data.deathN;
+
+if (data.shiftOutM !== undefined) document.getElementById('shiftOutM').value = data.shiftOutM;
+if (data.shiftOutE !== undefined) document.getElementById('shiftOutE').value = data.shiftOutE;
+if (data.shiftOutN !== undefined) document.getElementById('shiftOutN').value = data.shiftOutN;
       });
     }
     function loadPatients() {
